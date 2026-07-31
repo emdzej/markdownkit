@@ -89,13 +89,11 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
             selectionRange: tv.selectedRange, tokens: tokens, in: ns, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
 
-        let storage = tv.textStorage
-        storage.beginEditing()
-        storage.setAttributes([
+        let baseAttrs: [NSAttributedString.Key: Any] = [
             .font: baseFont,
             .foregroundColor: configuration.theme.bodyText,
             .paragraphStyle: paragraph,
-        ], range: full)
+        ]
         let ranges = MarkdownStyler.styleAttributes(
             text: string,
             fontName: fontName,
@@ -106,8 +104,16 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
             precomputedTokens: tokens,
             configuration: configuration
         )
-        for (range, attrs) in ranges where NSMaxRange(range) <= full.length {
-            storage.addAttributes(attrs, range: range)
+        // Write each character range once, left to right, with one complete
+        // attribute dict per run: overlapping per-range writes re-split the run
+        // array and intern an intermediate dict per call, which goes quadratic on
+        // large notes. (Ported from swift-markdown-engine #107.)
+        let runs = MarkdownStyler.flattenedRuns(ranges, base: baseAttrs, documentLength: full.length)
+        let storage = tv.textStorage
+        storage.beginEditing()
+        storage.setAttributes(baseAttrs, range: full)
+        for (range, attrs) in runs {
+            storage.setAttributes(attrs, range: range)
         }
         storage.endEditing()
 

@@ -20,10 +20,23 @@ extension NativeTextViewCoordinator {
         from text: String,
         invalidateLayout: Bool = false
     ) {
+        // Suppress the re-entrant textViewDidChangeSelection that `textView.string =`
+        // and the setAttributedString transfer below fire synchronously (71ms of
+        // redundant styling on a 346k note); the necessary side effects are replayed
+        // once at the end of this method. (Ported from swift-markdown-engine #107.)
+        isRebuildingDocument = true
+        defer { isRebuildingDocument = false }
         // Storage is raw Markdown, shown as-is.
         let displayText = text
 
-        if textView.string != displayText {
+        // Claimed BEFORE the assignment: `textView.string =` re-enters
+        // textViewDidChangeSelection synchronously, whose updateCodeBlockSelection
+        // laid out the whole (still unstyled) document — 141ms / 7714 fragments that
+        // the ensureLayout below rebuilds from scratch anyway. This rebuild's own
+        // ensureLayout IS that one-shot per-document layout.
+        didEnsureLayoutForCurrentDocument = true
+        let textChanged = !(textView.string as NSString).isEqual(to: displayText)
+        if textChanged {
             textView.string = displayText
         }
         lastSyncedText = text
@@ -41,11 +54,18 @@ extension NativeTextViewCoordinator {
             .foregroundColor: configuration.theme.bodyText,
             .paragraphStyle: paragraph
         ]
-        textView.textStorage?.beginEditing()
-        textView.textStorage?.removeAttribute(.link, range: fullRange)
-        textView.textStorage?.setAttributes(baseAttrs, range: fullRange)
+        // ── Root cause & fix (2026-07) ────────────────────────────────────────
+        // CPU+page-fault instrumentation proved the first per-process open of a large
+        // note spent 12.5s of PURE CPU (blocked=2ms), writing 69k attributes to the LIVE
+        // TextKit-2 storage and faulting in 315k pages / ~5GB; a later open with warm
+        // pages does the identical work in 78ms. So the whole styled string is built on a
+        // DETACHED NSMutableAttributedString and handed to the live storage in ONE
+        // transfer — the expensive first-touch happens off the layout-connected storage.
+        let built = NSMutableAttributedString(string: displayText)
+        built.setAttributes(baseAttrs, range: fullRange)
 
-        let tokens = parsedDocument(for: displayText).tokens
+        let parsed = parsedDocument(for: displayText)
+        let tokens = parsed.tokens
         // A rebuild replaces the text under the code-block token cache, which
         // only the typing / caret paths refresh. After a programmatic swap
         // (document switch, external binding change) a deferred refresh would
@@ -73,9 +93,27 @@ extension NativeTextViewCoordinator {
             precomputedTokens: tokens,
             configuration: configuration
         )
-        for (range, attrs) in ranges {
-            for (key, value) in attrs {
-                textView.textStorage?.addAttribute(key, value: value, range: range)
+        // Per-key `addAttribute` on the live storage interns a short-lived
+        // intermediate dict per call into Foundation's weak attribute-dictionary
+        // table, which turns quadratic on large notes. Coalescing to
+        // non-overlapping runs and writing each with ONE `setAttributes` on the
+        // detached string interns one live dict per run.
+        let runs = MarkdownStyler.flattenedRuns(ranges, base: baseAttrs,
+                                                documentLength: fullRange.length)
+        for (range, attrs) in runs {
+            built.setAttributes(attrs, range: range)
+        }
+
+        // New text: ONE live-storage mutation carries the whole styled document across
+        // (the characters were just replaced anyway). Same text (font/theme change,
+        // Writing Tools undo): write the same runs in place instead, so no character
+        // edit resets the selection, spelling markers or undo state.
+        textView.textStorage?.beginEditing()
+        if textChanged {
+            textView.textStorage?.setAttributedString(built)
+        } else {
+            built.enumerateAttributes(in: fullRange, options: []) { attrs, range, _ in
+                textView.textStorage?.setAttributes(attrs, range: range)
             }
         }
         textView.textStorage?.endEditing()
@@ -91,6 +129,28 @@ extension NativeTextViewCoordinator {
                 tlm.invalidateLayout(for: tlm.documentRange)
             }
             tlm.ensureLayout(for: tlm.documentRange)
+        }
+
+        // The re-entrant textViewDidChangeSelection was suppressed for this rebuild
+        // (isRebuildingDocument), so replay its selection-derived side effects that
+        // nothing else runs afterwards: spell/grammar/quote toggles and the
+        // bold/italic selection state for the loaded caret. Also seed the selection
+        // bookkeeping the next real selection change diffs against, so it starts
+        // from the loaded document instead of the previous one's stale caret.
+        // (The code-block overlay refresh is scheduled by the wrapper after the
+        // rebuild.) Active Writing Tools skips it, as the handler itself would.
+        if !isWritingToolsActive {
+            let finalSelection = textView.selectedRange()
+            updateSelectionStates(textView)
+            updateAutocorrectSettings(
+                textView,
+                caretLocation: finalSelection.location,
+                codeTokens: parsed.codeTokens,
+                latexTokens: parsed.latexTokens,
+                allTokens: parsed.tokens
+            )
+            previousActiveTokenIndices = activeTokenIndices
+            previousCaretLocation = finalSelection.location
         }
 
         // Reconcile wide-table overlays after layout settles.

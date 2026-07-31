@@ -161,6 +161,12 @@ extension NativeTextViewCoordinator {
         MainActor.assumeIsolated { (tv as? NativeTextView)?.markerBar.selectionDidChange() }
         if isWritingToolsActive { return }
         if routeSelectionThroughTableGrid(tv) { return }
+        // During a document rebuild this fires re-entrantly (string assign + styled-string
+        // transfer both reset the selection). The rebuild produces the full styling and
+        // selection-derived state itself, so the rest of this pass is redundant — it
+        // replays the surviving side effects (selection states, autocorrect toggles,
+        // selection bookkeeping) at its end. (Ported from swift-markdown-engine #107.)
+        if isRebuildingDocument { return }
         let selRange = tv.selectedRange()
         let currentEventType = NSApp.currentEvent?.type
         // Mouse focus landing on a rendered link: navigate, do not reveal its source.

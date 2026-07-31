@@ -421,7 +421,14 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         let font = PlatformFont.md(named: fontName, size: fontSize)
         textView.font = font
         textView.baseFont = font
-        textView.recalcOverscroll(for: nsView)
+        // Skip on switch: textView.string still holds the OUTGOING doc here, so the "?"
+        // tag would force a full ensureLayout of the doc about to be discarded (~274ms /
+        // 7714 frags @346k). recalcOverscroll#2 after the rebuild measures the new doc;
+        // scroll is parked at top so clampToInsets below stays in range. Non-switch
+        // updates (font change, typing) must keep the forced full layout.
+        if !isNodeSwitch {
+            textView.recalcOverscroll(for: nsView)
+        }
         (nsView as? ClampedScrollView)?.clampToInsets()
 
         // Sync coordinator's font fields BEFORE the rebuild so the helper
