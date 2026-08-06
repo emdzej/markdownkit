@@ -27,6 +27,12 @@
 //                          recursively; code/image/latex/escape are
 //                          opaque leaves.
 //
+//  Claimed spans therefore never PARTIALLY overlap. That is load-bearing for cost as well
+//  as correctness: it's what lets `ClaimedIndex` answer "is this claimed?" with
+//  a cursor and `buildTree` derive containment from a sort. A pass that claimed
+//  a PARTIALLY overlapping span would break both, so keep claiming whole or not
+//  at all.
+//
 
 import Foundation
 
@@ -76,9 +82,9 @@ enum InlineParser {
         guard len > 0 else { return [] }
 
         var claimed = scanCodeSpans(ns, len: len)
-        claimed += scanEscapes(ns, len: len, claimed: claimed.map(\.fullRange))
-        claimed += scanLinkFamily(ns, len: len, claimed: claimed.map(\.fullRange))
-        let emphasis = resolveEmphasis(ns, len: len, claimedRanges: claimed.map(\.fullRange))
+        claimed += scanEscapes(ns, len: len, claimed: ClaimedIndex(claimed))
+        claimed += scanLinkFamily(ns, len: len, claimed: ClaimedIndex(claimed))
+        let emphasis = resolveEmphasis(ns, len: len, claimed: ClaimedIndex(claimed))
         return buildTree(region: NSRange(location: 0, length: len), spans: claimed + emphasis, ns: ns)
     }
 
@@ -106,12 +112,40 @@ enum InlineParser {
                 return r
             }
         }
-        /// Region whose interior holds collected child spans — only emphasis qualifies.
-        var containerContent: NSRange? {
-            if case .emphasis(_, _, let open, let close) = self {
-                return NSRange(location: NSMaxRange(open), length: close.location - NSMaxRange(open))
-            }
-            return nil
+    }
+
+    /// The already-claimed ranges, in a form the later passes can consult in
+    /// amortised constant time.
+    ///
+    /// Every pass that asks "is this claimed?" walks the string left to right
+    /// and never looks back, and claimed ranges never PARTIALLY overlap (each
+    /// pass only claims inside regions no earlier pass took). So a cursor over
+    /// the sorted ranges answers without rescanning: the answer for index `i`
+    /// only ever involves the first range that ends after `i`.
+    ///
+    /// Sortedness is established here rather than assumed of callers, so no
+    /// call site carries an ordering obligation.
+    private struct ClaimedIndex {
+        private let ranges: [NSRange]
+        private var cursor = 0
+
+        init(_ spans: [Span]) {
+            ranges = spans.map(\.fullRange).sorted { $0.location < $1.location }
+        }
+
+        /// Discard ranges that end at or before `idx`. `idx` must not move backwards.
+        private mutating func advance(to idx: Int) {
+            while cursor < ranges.count, NSMaxRange(ranges[cursor]) <= idx { cursor += 1 }
+        }
+
+        mutating func contains(_ idx: Int) -> Bool {
+            advance(to: idx)
+            return cursor < ranges.count && NSLocationInRange(idx, ranges[cursor])
+        }
+
+        mutating func overlaps(_ range: NSRange) -> Bool {
+            advance(to: range.location)
+            return cursor < ranges.count && ranges[cursor].location < NSMaxRange(range)
         }
     }
 
@@ -163,12 +197,12 @@ enum InlineParser {
 
     // MARK: - 2. Backslash escapes (claimed → escaped chars are inert everywhere)
 
-    private static func scanEscapes(_ ns: NSString, len: Int, claimed: [NSRange]) -> [Span] {
-        func inClaimed(_ idx: Int) -> Bool { claimed.contains { NSLocationInRange(idx, $0) } }
+    private static func scanEscapes(_ ns: NSString, len: Int, claimed: ClaimedIndex) -> [Span] {
+        var claimed = claimed
         var spans: [Span] = []
         var i = 0
         while i < len - 1 {
-            if ns.character(at: i) == backslash, !inClaimed(i), isAsciiPunctuationChar(ns.character(at: i + 1)) {
+            if ns.character(at: i) == backslash, !claimed.contains(i), isAsciiPunctuationChar(ns.character(at: i + 1)) {
                 spans.append(.escape(
                     range: NSRange(location: i, length: 2),
                     character: NSRange(location: i + 1, length: 1),
@@ -184,15 +218,18 @@ enum InlineParser {
 
     // MARK: - 3. Link family / strikethrough / inline LaTeX
 
-    private static func scanLinkFamily(_ ns: NSString, len: Int, claimed: [NSRange]) -> [Span] {
-        func overlapsClaimed(_ range: NSRange) -> Bool {
-            claimed.contains { NSIntersectionRange($0, range).length > 0 }
+    private static func scanLinkFamily(_ ns: NSString, len: Int, claimed: ClaimedIndex) -> [Span] {
+        var claimed = claimed
+        // A candidate overlapping any claimed span is rejected.
+        func hasDisallowedClaimedOverlap(_ span: Span) -> Bool {
+            claimed.overlaps(span.fullRange)
         }
         var spans: [Span] = []
         var i = 0
         while i < len {
-            if claimed.contains(where: { NSLocationInRange(i, $0) }) { i += 1; continue }
-            if let span = matchClaimedSpan(ns, len, at: i), !overlapsClaimed(span.fullRange) {
+            if claimed.contains(i) { i += 1; continue }
+            if let span = matchClaimedSpan(ns, len, at: i),
+               !hasDisallowedClaimedOverlap(span) {
                 spans.append(span)
                 i = NSMaxRange(span.fullRange)
             } else {
@@ -406,8 +443,8 @@ enum InlineParser {
         var remaining: Int { rightEdge - leftEdge }
     }
 
-    private static func resolveEmphasis(_ ns: NSString, len: Int, claimedRanges: [NSRange]) -> [Span] {
-        var runs = collectDelimiterRuns(ns, len: len, claimedRanges: claimedRanges)
+    private static func resolveEmphasis(_ ns: NSString, len: Int, claimed: ClaimedIndex) -> [Span] {
+        var runs = collectDelimiterRuns(ns, len: len, claimed: claimed)
         guard !runs.isEmpty else { return [] }
         var stack: [Int] = []
         var spans: [Span] = []
@@ -422,18 +459,15 @@ enum InlineParser {
         return spans
     }
 
-    private static func collectDelimiterRuns(_ ns: NSString, len: Int, claimedRanges: [NSRange]) -> [DelimRun] {
-        func inClaimed(_ idx: Int) -> Bool {
-            for r in claimedRanges where NSLocationInRange(idx, r) { return true }
-            return false
-        }
+    private static func collectDelimiterRuns(_ ns: NSString, len: Int, claimed: ClaimedIndex) -> [DelimRun] {
+        var claimed = claimed
         var runs: [DelimRun] = []
         var lineIdx = 0
         var i = 0
         while i < len {
             let c = ns.character(at: i)
             if c == newline { lineIdx += 1; i += 1; continue }
-            guard c == asterisk || c == underscore, !inClaimed(i) else { i += 1; continue }
+            guard c == asterisk || c == underscore, !claimed.contains(i) else { i += 1; continue }
             var j = i
             while j < len, ns.character(at: j) == c { j += 1 }
 
@@ -505,33 +539,46 @@ enum InlineParser {
     // MARK: - 5. Containment tree
 
     private static func buildTree(region: NSRange, spans: [Span], ns: NSString) -> [InlineNode] {
-        let inRegion = spans.filter { rangeContains(region, $0.fullRange) }
-
-        func isChild(_ s: Span) -> Bool {
-            for parent in inRegion {
-                guard !equalRange(parent.fullRange, s.fullRange), let content = parent.containerContent else { continue }
-                if rangeContains(content, s.fullRange) { return true }
+        // Spans are non-overlapping or properly nested (each pass claims only
+        // inside regions no earlier pass took), so ordering by start ascending
+        // and length descending puts every span immediately after the one that
+        // contains it. Containment then falls out of a single ordered walk,
+        // instead of testing each span against every other span.
+        let ordered = spans
+            .filter { rangeContains(region, $0.fullRange) }
+            .sorted { a, b in
+                let (x, y) = (a.fullRange, b.fullRange)
+                return x.location == y.location ? x.length > y.length : x.location < y.location
             }
-            return false
-        }
+        var cursor = 0
+        return buildTree(region: region, ordered: ordered, cursor: &cursor, ns: ns)
+    }
 
-        let top = inRegion.filter { !isChild($0) }.sorted { $0.fullRange.location < $1.fullRange.location }
+    /// Consumes spans from `cursor` for as long as they fall inside `region`,
+    /// leaving `cursor` on the first span that doesn't.
+    private static func buildTree(
+        region: NSRange, ordered: [Span], cursor: inout Int, ns: NSString
+    ) -> [InlineNode] {
         var result: [InlineNode] = []
-        var cursor = region.location
+        var textStart = region.location
 
-        for span in top {
+        while cursor < ordered.count {
+            let span = ordered[cursor]
             let fr = span.fullRange
-            if fr.location > cursor {
-                result.append(.text(NSRange(location: cursor, length: fr.location - cursor)))
+            guard rangeContains(region, fr) else { break }
+            cursor += 1
+
+            if fr.location > textStart {
+                result.append(.text(NSRange(location: textStart, length: fr.location - textStart)))
             }
             switch span {
             case .code(let range, let content):
                 result.append(.code(range: range, content: content))
             case .emphasis(let kind, let range, let open, let close):
                 let content = NSRange(location: NSMaxRange(open), length: close.location - NSMaxRange(open))
-                let childSpans = inRegion.filter { rangeContains(content, $0.fullRange) && !equalRange($0.fullRange, fr) }
                 result.append(.emphasis(kind, range: range, markers: [open, close],
-                                        children: buildTree(region: content, spans: childSpans, ns: ns)))
+                                        children: buildTree(region: content, ordered: ordered,
+                                                            cursor: &cursor, ns: ns)))
             case .link(let range, let textRange, let url, let markers):
                 result.append(.link(range: range, textRange: textRange, url: url, markers: markers,
                                      children: reparse(textRange, ns: ns)))
@@ -545,10 +592,14 @@ enum InlineParser {
             case .escape(let range, let character, let marker):
                 result.append(.escape(range: range, character: character, marker: marker))
             }
-            cursor = NSMaxRange(fr)
+            // Every span but emphasis is opaque, so nothing should remain
+            // inside one. Skipping keeps the walk well-formed if that ever
+            // changes, rather than emitting a node past the cursor.
+            while cursor < ordered.count, rangeContains(fr, ordered[cursor].fullRange) { cursor += 1 }
+            textStart = NSMaxRange(fr)
         }
-        if cursor < NSMaxRange(region) {
-            result.append(.text(NSRange(location: cursor, length: NSMaxRange(region) - cursor)))
+        if textStart < NSMaxRange(region) {
+            result.append(.text(NSRange(location: textStart, length: NSMaxRange(region) - textStart)))
         }
         return result
     }
@@ -580,10 +631,6 @@ enum InlineParser {
 
     private static func rangeContains(_ outer: NSRange, _ inner: NSRange) -> Bool {
         inner.location >= outer.location && NSMaxRange(inner) <= NSMaxRange(outer)
-    }
-
-    private static func equalRange(_ a: NSRange, _ b: NSRange) -> Bool {
-        a.location == b.location && a.length == b.length
     }
 
     private static func isWhitespaceOrBoundary(_ idx: Int, _ ns: NSString, _ len: Int) -> Bool {
