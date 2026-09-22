@@ -46,6 +46,14 @@ extension NativeTextViewCoordinator {
         textView.textStorage?.setAttributes(baseAttrs, range: fullRange)
 
         let tokens = parsedDocument(for: displayText).tokens
+        // A rebuild replaces the text under the code-block token cache, which
+        // only the typing / caret paths refresh. After a programmatic swap
+        // (document switch, external binding change) a deferred refresh would
+        // cut the new text with the previous document's ranges. Hand over this
+        // text's code blocks here. (Ported from swift-markdown-engine #162.)
+        cachedCodeBlockTokens = tokens.enumerated()
+            .filter { $0.element.kind == .codeBlock }
+            .map { (index: $0.offset, token: $0.element) }
         // Hide caret from styling when read-only, else clicks reveal raw token syntax.
         let caretLocation = textView.isEditable ? textView.selectedRange().location : -1
         activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(
