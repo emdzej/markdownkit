@@ -8,6 +8,7 @@
 //  AppKit and UIKit grid views.
 //
 
+import CoreGraphics
 import Foundation
 
 /// A cell to focus in the table that starts at `tableLocation`, once that
@@ -122,5 +123,65 @@ extension MarkdownTable {
             [align("Align Left", .left), align("Align Center", .center), align("Align Right", .right)],
             [TableGridCommand(title: "Edit as Markdown", action: .revealSource)],
         ]
+    }
+}
+
+// MARK: - Row and column handles
+
+extension MarkdownTable {
+    /// The menu of a column's handle (above the column).
+    func columnCommands(_ c: Int) -> [[TableGridCommand]] {
+        let alignment = alignments[c] == .none ? .left : alignments[c]
+        func align(_ title: String, _ value: Alignment) -> TableGridCommand {
+            TableGridCommand(title: title, isChecked: alignment == value,
+                             action: .edit { $0.alignments[c] = value; return nil })
+        }
+        return [
+            [
+                TableGridCommand(title: "Insert Column Left", action: .edit { $0.insertColumn(at: c); return (0, c) }),
+                TableGridCommand(title: "Insert Column Right", action: .edit { $0.insertColumn(at: c + 1); return (0, c + 1) }),
+            ],
+            [
+                TableGridCommand(title: "Move Column Left", isEnabled: c > 0,
+                                 action: .edit { $0.moveColumn(c, to: c - 1); return nil }),
+                TableGridCommand(title: "Move Column Right", isEnabled: c < columnCount - 1,
+                                 action: .edit { $0.moveColumn(c, to: c + 1); return nil }),
+            ],
+            [align("Align Left", .left), align("Align Center", .center), align("Align Right", .right)],
+            [
+                TableGridCommand(title: "Fit Width to Content", isEnabled: columnWidths[c] != .auto,
+                                 action: .edit { $0.columnWidths[c] = .auto; return nil }),
+                TableGridCommand(title: "Fit All Columns to Content", isEnabled: columnWidths.contains { $0 != .auto },
+                                 action: .edit { $0.columnWidths = Array(repeating: .auto, count: $0.columnCount); return nil }),
+            ],
+            [TableGridCommand(title: "Delete Column", isEnabled: columnCount > 1, action: .edit { $0.removeColumn(c); return nil })],
+        ]
+    }
+
+    /// The menu of a row's handle (left of the row). Row 0 is the header.
+    func rowCommands(_ r: Int) -> [[TableGridCommand]] {
+        [
+            [
+                TableGridCommand(title: "Insert Row Above", isEnabled: r > 0, action: .edit { $0.insertRow(at: r); return (r, 0) }),
+                TableGridCommand(title: "Insert Row Below", action: .edit { $0.insertRow(at: r + 1); return (r + 1, 0) }),
+            ],
+            [
+                TableGridCommand(title: "Move Row Up", isEnabled: r > 1, action: .edit { $0.moveRow(r, to: r - 1); return nil }),
+                TableGridCommand(title: "Move Row Down", isEnabled: r > 0 && r < rowCount - 1,
+                                 action: .edit { $0.moveRow(r, to: r + 1); return nil }),
+            ],
+            [TableGridCommand(title: "Delete Row", isEnabled: r > 0, action: .edit { $0.removeRow(r); return nil })],
+        ]
+    }
+
+    /// Sets column `c` to a box `width` points wide, keeping the column's
+    /// unit: a percent column stays a percentage of `availableWidth`.
+    mutating func setColumnWidth(_ c: Int, to width: CGFloat, availableWidth: CGFloat) {
+        let width = max(TableGridLayout.minColumnWidth, width.rounded())
+        if case .percent = columnWidths[c], availableWidth > 0 {
+            columnWidths[c] = .percent(min(100, (width / availableWidth * 1000).rounded() / 10))
+        } else {
+            columnWidths[c] = .points(width)
+        }
     }
 }

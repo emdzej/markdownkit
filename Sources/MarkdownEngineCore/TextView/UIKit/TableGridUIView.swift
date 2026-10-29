@@ -10,6 +10,11 @@
 //  macOS (see `TableGridNavigation`); the software keyboard's Return key
 //  moves down a row.
 //
+//  While a cell is edited, the markers of `TableGridMarkers` show: the
+//  handles of its column and row open their menus, the bars below / right
+//  add a row / column, and dragging a column border near the edited
+//  column sets its width (`{cols="…"}` after the table).
+//
 
 import UIKit
 
@@ -41,7 +46,7 @@ final class TableOverlayUIView: UIScrollView {
     }
 }
 
-final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteractionDelegate {
+final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteractionDelegate, UIGestureRecognizerDelegate {
 
     private(set) var info: TableRenderInfo
     weak var textView: MarkdownUITextView?
@@ -49,6 +54,10 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
     private var field: TableCellTextField?
     private(set) var editingCell: (row: Int, column: Int)?
     private var isFinishingEdit = false
+    /// Menu buttons over the edited cell's column and row handles.
+    private var handleButtons: [UIButton] = []
+    /// A column border being dragged: the column left of it and the new right edge.
+    private var resizing: (column: Int, edge: CGFloat)?
 
     init(info: TableRenderInfo, textView: MarkdownUITextView) {
         self.info = info
@@ -57,6 +66,9 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         backgroundColor = .clear
         contentMode = .redraw
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap(_:))))
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        pan.delegate = self
+        addGestureRecognizer(pan)
         addInteraction(UIContextMenuInteraction(delegate: self))
     }
 
@@ -67,6 +79,81 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         frame.size = info.layout.size
         if let editingCell, editingCell.row < info.table.rowCount, editingCell.column < info.table.columnCount {
             positionField(for: editingCell)
+        }
+        updateHandleButtons()
+        setNeedsDisplay()
+    }
+
+    // MARK: Markers
+
+    private var visibleMarkers: [TableGridMarker] {
+        guard resizing == nil, let editingCell else { return [] }
+        return info.layout.visibleMarkers(pointer: nil, editing: editingCell)
+    }
+
+    /// Invisible menu buttons (enlarged for touch) over the edited cell's handles.
+    private func updateHandleButtons() {
+        handleButtons.forEach { $0.removeFromSuperview() }
+        handleButtons = []
+        guard let cell = editingCell, cell.row < info.table.rowCount, cell.column < info.table.columnCount else { return }
+        let items: [(TableGridMarker, [[TableGridCommand]], String)] = [
+            (.columnHandle(cell.column), info.table.columnCommands(cell.column), "Column"),
+            (.rowHandle(cell.row), info.table.rowCommands(cell.row), "Row"),
+        ]
+        for (marker, groups, label) in items {
+            let button = UIButton(type: .custom)
+            button.frame = info.layout.rect(for: marker).insetBy(dx: -12, dy: -12)
+            button.menu = menu(for: groups)
+            button.showsMenuAsPrimaryAction = true
+            button.accessibilityLabel = "\(label) Options"
+            addSubview(button)
+            handleButtons.append(button)
+        }
+    }
+
+    private func menu(for groups: [[TableGridCommand]]) -> UIMenu {
+        UIMenu(children: groups.map { group in
+            UIMenu(options: .displayInline, children: group.map { command in
+                UIAction(
+                    title: command.title,
+                    attributes: command.isEnabled ? [] : .disabled,
+                    state: command.isChecked ? .on : .off
+                ) { [weak self] _ in self?.run(command) }
+            })
+        })
+    }
+
+    override func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+        guard gesture is UIPanGestureRecognizer else { return true }
+        // Only a mostly-horizontal drag that starts on a column border, while editing.
+        guard editingCell != nil, textView?.isEditable ?? false,
+              info.layout.columnBorder(near: gesture.location(in: self), tolerance: 10) != nil,
+              let pan = gesture as? UIPanGestureRecognizer else { return false }
+        let v = pan.velocity(in: self)
+        return abs(v.x) > abs(v.y)
+    }
+
+    @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
+        let layout = info.layout
+        switch pan.state {
+        case .began:
+            guard let border = layout.columnBorder(near: pan.location(in: self), tolerance: 10) else { return }
+            resizing = (border - 1, layout.columnLeft[border])
+        case .changed:
+            guard let r = resizing else { return }
+            let minEdge = layout.columnLeft[r.column] + TableGridLayout.minColumnWidth
+            resizing = (r.column, max(minEdge, pan.location(in: self).x))
+        case .ended:
+            guard let r = resizing else { return }
+            resizing = nil
+            let width = r.edge - layout.columnLeft[r.column]
+            if abs(width - layout.columnWidth(r.column)) >= 1 {
+                var table = tableWithFieldValue()
+                table.setColumnWidth(r.column, to: width, availableWidth: info.availableWidth)
+                commitAndMove(to: editingCell, table: table, actionName: "Resize Column")
+            }
+        default:
+            resizing = nil
         }
         setNeedsDisplay()
     }
@@ -90,12 +177,25 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         let ring = UIBezierPath(rect: content.insetBy(dx: 1, dy: 1))
         ring.lineWidth = 2
         ring.stroke()
+        let accent = textView.configuration.theme.link
+        if let resizing {
+            accent.setFill()
+            UIRectFill(CGRect(x: resizing.edge - 1, y: info.layout.tableRect.minY, width: 2, height: info.layout.tableRect.height))
+        } else {
+            info.layout.drawMarkers(visibleMarkers, highlighted: nil, accent: accent, muted: textView.configuration.theme.mutedText)
+        }
     }
 
     // MARK: Editing
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
-        guard let cell = info.layout.cell(at: gesture.location(in: self)) else { return }
+        let point = gesture.location(in: self)
+        if let marker = info.layout.marker(at: point, among: visibleMarkers),
+           let result = info.layout.apply(marker, to: tableWithFieldValue()) {
+            commitAndMove(to: result.focus, table: result.table, actionName: result.actionName)
+            return
+        }
+        guard let cell = info.layout.cell(at: point) else { return }
         if let editingCell, editingCell == cell { return }
         commitAndMove(to: cell)
     }
@@ -128,6 +228,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         self.field = field
         editingCell = cell
         positionField(for: cell)
+        updateHandleButtons()
         setNeedsDisplay()
         field.becomeFirstResponder()
         (superview as? UIScrollView)?.scrollRectToVisible(info.layout.cellRect(row: cell.row, column: cell.column), animated: true)
@@ -168,6 +269,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         isFinishingEdit = false
         self.field = nil
         editingCell = nil
+        updateHandleButtons()
         setNeedsDisplay()
     }
 
@@ -242,15 +344,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         guard let cell = info.layout.cell(at: location) else { return nil }
         let groups = info.table.contextCommands(row: cell.row, column: cell.column)
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
-            UIMenu(children: groups.map { group in
-                UIMenu(options: .displayInline, children: group.map { command in
-                    UIAction(
-                        title: command.title,
-                        attributes: command.isEnabled ? [] : .disabled,
-                        state: command.isChecked ? .on : .off
-                    ) { _ in self?.run(command) }
-                })
-            })
+            self?.menu(for: groups)
         }
     }
 

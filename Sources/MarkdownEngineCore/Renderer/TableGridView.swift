@@ -9,6 +9,12 @@
 //  a cell, or any structural change from the context menu, rewrites the
 //  table's source as a single undoable edit via `NativeTextView.replaceTable`.
 //
+//  Markers (see `TableGridMarkers`) appear with the pointer: handles above
+//  columns and left of rows open their menus, "+" buttons on the borders
+//  insert there, and the bars below and right add a row / column. Dragging
+//  a column border sets that column's width (`{cols="…"}` after the
+//  table); double-clicking it fits the column to its content again.
+//
 //  Keys while editing a cell:
 //    Tab / Shift-Tab   next / previous cell (Tab past the last cell adds a row)
 //    Return            cell below (adds a row from the last row)
@@ -27,6 +33,11 @@ final class TableGridView: NSView, NSTextFieldDelegate {
     private(set) var editingCell: (row: Int, column: Int)?
     /// Set while focus moves programmatically, so end-of-editing doesn't commit twice.
     private var isFinishingEdit = false
+    /// Pointer position while it's over the grid (drives the markers).
+    private var pointer: CGPoint?
+    /// A column border being dragged: the column left of it and the new right edge.
+    private var resizing: (column: Int, edge: CGFloat)?
+    private var hoverTracking: NSTrackingArea?
 
     init(info: TableRenderInfo, textView: NativeTextView) {
         self.info = info
@@ -41,6 +52,7 @@ final class TableGridView: NSView, NSTextFieldDelegate {
     func update(info: TableRenderInfo) {
         self.info = info
         setFrameSize(info.layout.size)
+        window?.invalidateCursorRects(for: self)
         if let editingCell, editingCell.row < info.table.rowCount, editingCell.column < info.table.columnCount {
             positionField(for: editingCell)
         }
@@ -60,15 +72,125 @@ final class TableGridView: NSView, NSTextFieldDelegate {
             ring.lineWidth = 2
             ring.stroke()
         }
+        drawMarkers()
+    }
+
+    private var visibleMarkers: [TableGridMarker] {
+        guard resizing == nil, textView?.isEditable ?? false else { return [] }
+        return info.layout.visibleMarkers(pointer: pointer, editing: editingCell)
+    }
+
+    private func drawMarkers() {
+        let layout = info.layout
+        let accent = textView?.configuration.theme.link ?? .controlAccentColor
+        let muted = textView?.configuration.theme.mutedText ?? .secondaryLabelColor
+        if let resizing {
+            // Guide at the dragged edge.
+            accent.setFill()
+            NSRect(x: resizing.edge - 1, y: layout.tableRect.minY, width: 2, height: layout.tableRect.height).fill()
+            return
+        }
+        let markers = visibleMarkers
+        let hot = pointer.flatMap { layout.marker(at: $0, among: markers) }
+        layout.drawMarkers(markers, highlighted: hot, accent: accent, muted: muted)
+    }
+
+    // MARK: Hover
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTracking { removeTrackingArea(hoverTracking) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverTracking = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        pointer = convert(event.locationInWindow, from: nil)
+        needsDisplay = true
+    }
+
+    override func mouseEntered(with event: NSEvent) { mouseMoved(with: event) }
+
+    override func mouseExited(with event: NSEvent) {
+        pointer = nil
+        needsDisplay = true
+    }
+
+    override func resetCursorRects() {
+        let layout = info.layout
+        guard textView?.isEditable ?? false else { return }
+        for i in 1...layout.columnCount {
+            let x = layout.columnLeft[i] - TableGridLayout.borderWidth / 2
+            addCursorRect(NSRect(x: x - 3, y: layout.tableRect.minY, width: 6, height: layout.tableRect.height), cursor: .resizeLeftRight)
+        }
     }
 
     // MARK: Mouse
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        guard let cell = info.layout.cell(at: point) else { return }
+        let layout = info.layout
+        if let marker = layout.marker(at: point, among: visibleMarkers) {
+            press(marker, at: point)
+            return
+        }
+        if textView?.isEditable ?? false, let border = layout.columnBorder(near: point) {
+            if event.clickCount == 2 {
+                var table = tableWithFieldValue()
+                table.columnWidths[border - 1] = .auto
+                commitAndMove(to: nil, table: table, actionName: "Fit Column Width")
+            } else {
+                dragBorder(border, from: event)
+            }
+            return
+        }
+        guard let cell = layout.cell(at: point) else { return }
         if let editingCell, editingCell == cell { return }
         commitAndMove(to: cell)
+    }
+
+    private func press(_ marker: TableGridMarker, at point: CGPoint) {
+        switch marker {
+        case .columnHandle(let c):
+            popUp(info.table.columnCommands(c), below: info.layout.rect(for: marker))
+        case .rowHandle(let r):
+            popUp(info.table.rowCommands(r), below: info.layout.rect(for: marker))
+        default:
+            guard let result = info.layout.apply(marker, to: tableWithFieldValue()) else { return }
+            commitAndMove(to: result.focus, table: result.table, actionName: result.actionName)
+        }
+    }
+
+    private func popUp(_ groups: [[TableGridCommand]], below rect: CGRect) {
+        let menu = menu(for: groups)
+        menu.popUp(positioning: nil, at: CGPoint(x: rect.minX, y: rect.maxY + 4), in: self)
+    }
+
+    /// Follows the drag of column border `border` (right edge of column
+    /// `border - 1`) and writes the new width on release.
+    private func dragBorder(_ border: Int, from event: NSEvent) {
+        let column = border - 1
+        let left = info.layout.columnLeft[column]
+        let minEdge = left + TableGridLayout.minColumnWidth
+        var edge = info.layout.columnLeft[border]
+        resizing = (column, edge)
+        needsDisplay = true
+        window?.trackEvents(matching: [.leftMouseDragged, .leftMouseUp], timeout: .infinity, mode: .eventTracking) { next, stop in
+            guard let next else { stop.pointee = true; return }
+            edge = max(minEdge, self.convert(next.locationInWindow, from: nil).x)
+            self.resizing = (column, edge)
+            self.needsDisplay = true
+            if next.type == .leftMouseUp { stop.pointee = true }
+        }
+        resizing = nil
+        needsDisplay = true
+        let width = edge - left
+        guard abs(width - info.layout.columnWidth(column)) >= 1 else { return }
+        var table = tableWithFieldValue()
+        table.setColumnWidth(column, to: width, availableWidth: info.availableWidth)
+        commitAndMove(to: nil, table: table, actionName: "Resize Column")
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -207,8 +329,12 @@ final class TableGridView: NSView, NSTextFieldDelegate {
     // MARK: Context menu
 
     private func contextMenu(for cell: (row: Int, column: Int)) -> NSMenu {
+        menu(for: info.table.contextCommands(row: cell.row, column: cell.column))
+    }
+
+    private func menu(for groups: [[TableGridCommand]]) -> NSMenu {
         let menu = NSMenu()
-        for (index, group) in info.table.contextCommands(row: cell.row, column: cell.column).enumerated() {
+        for (index, group) in groups.enumerated() {
             if index > 0 { menu.addItem(.separator()) }
             for command in group {
                 let item = TableMenuItem(title: command.title, action: #selector(runCommand(_:)), keyEquivalent: "")
