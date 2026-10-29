@@ -110,6 +110,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checking is enabled.
 
 ### Fixed
+- macOS: an editor showing the top of its document stays at the top when its
+  viewport resizes (a bar appearing above it no longer hides the first lines),
+  and `safeAreaInsets` changes after creation are applied.
 - Link destinations without `://` (relative paths, `mailto:`, `#anchors`)
   were rewritten to `https://…` before reaching `onLinkClick`.
 - `NativeTextViewWrapper` keeps links clickable and text selectable

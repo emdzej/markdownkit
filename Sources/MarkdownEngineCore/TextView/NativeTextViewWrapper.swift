@@ -244,7 +244,16 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         }
         scrollView.contentView.postsBoundsChangedNotifications = true
         var lastObservedViewportWidth = scrollView.contentView.bounds.width
+        let topPin = TopPin(frame: scrollView.contentView.frame)
         NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: scrollView.contentView, queue: nil) { _ in
+            // A viewport that showed the document's top keeps showing it when it
+            // resizes (e.g. a bar appears above the editor); AppKit would keep the
+            // old offset and hide the first lines.
+            topPin.frame = scrollView.contentView.frame
+            if topPin.atTop, abs(scrollView.contentView.bounds.origin.y + scrollView.contentInsets.top) > 0.5 {
+                scrollView.contentView.scroll(to: CGPoint(x: scrollView.contentView.bounds.origin.x, y: -scrollView.contentInsets.top))
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+            }
             // Refresh code-block overlays only on real viewport width changes, not on TextKit height-only echoes during typing.
             let newWidth = scrollView.contentView.bounds.width
             if abs(newWidth - lastObservedViewportWidth) > 0.5 {
@@ -268,6 +277,10 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             scrollView.clampToInsets()
         }
         NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: scrollView.contentView, queue: nil) { _ in
+            // Only real scrolls (same viewport frame) decide whether we're at the top.
+            if scrollView.contentView.frame == topPin.frame {
+                topPin.atTop = scrollView.contentView.bounds.origin.y <= -scrollView.contentInsets.top + 0.5
+            }
             textView.ensureVisibleLayout()
             if context.coordinator.isWritingToolsActive {
                 context.coordinator.fixWritingToolsChildWindowIfNeeded(textView: textView)
@@ -326,6 +339,18 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         }
         if nsView.autohidesScrollers != configuration.scrollers.autohidesScrollers {
             nsView.autohidesScrollers = configuration.scrollers.autohidesScrollers
+        }
+        // Safe-area insets can change after creation (e.g. a bar shown above the text).
+        let safeArea = configuration.safeAreaInsets
+        let current = nsView.contentInsets
+        if abs(current.top - safeArea.top) > 0.5 || abs(current.bottom - safeArea.bottom) > 0.5
+            || abs(current.left - safeArea.leading) > 0.5 || abs(current.right - safeArea.trailing) > 0.5 {
+            let wasAtTop = nsView.contentView.bounds.origin.y <= -current.top + 0.5
+            nsView.contentInsets = NSEdgeInsets(top: safeArea.top, left: safeArea.leading,
+                                                bottom: safeArea.bottom, right: safeArea.trailing)
+            if wasAtTop { nsView.contentView.scroll(to: CGPoint(x: 0, y: -safeArea.top)) }
+            nsView.reflectScrolledClipView(nsView.contentView)
+            textView.recalcOverscroll(for: nsView)
         }
         // Reading column centers by POSITION (container subview), so the text inset is constant.
         let desiredTextInset = CGSize(
@@ -465,6 +490,13 @@ private extension NativeTextViewWrapper {
             container: container
         )
     }
+}
+
+/// Whether the scroll view shows the top of the document, across viewport resizes.
+private final class TopPin {
+    var atTop = true
+    var frame: NSRect
+    init(frame: NSRect) { self.frame = frame }
 }
 
 #endif
