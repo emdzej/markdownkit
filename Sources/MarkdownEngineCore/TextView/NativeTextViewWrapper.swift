@@ -529,6 +529,9 @@ private extension NativeTextViewWrapper {
         var selected = textView.selectedTextAttributes
         selected[.backgroundColor] = theme.selection ?? NSColor.selectedTextBackgroundColor
         textView.selectedTextAttributes = selected
+        // Find and replace (⌘F, ⌥⌘F): the system find bar above the text.
+        textView.usesFindBar = true
+        textView.isIncrementalSearchingEnabled = true
         // NSTextView draws `.link` runs with these, over the styler's foreground color.
         textView.linkTextAttributes = [
             .foregroundColor: configuration.renderingMode == .source ? (configuration.source.linkColor ?? theme.link) : theme.link,

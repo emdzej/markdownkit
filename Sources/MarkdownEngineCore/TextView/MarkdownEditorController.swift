@@ -195,6 +195,19 @@ public final class MarkdownEditorController {
         refreshBlockStyle()
     }
 
+    /// Shows the find bar (with replace when `replacing`), seeded with the selection.
+    public func showFind(replacing: Bool = false) {
+        guard let textView else { return }
+        #if os(macOS)
+        textView.window?.makeFirstResponder(textView)
+        let item = NSMenuItem()
+        item.tag = Int((replacing ? NSTextFinder.Action.showReplaceInterface : NSTextFinder.Action.showFindInterface).rawValue)
+        textView.performTextFinderAction(item)
+        #else
+        textView.findInteraction?.presentFindNavigator(showingReplace: replacing)
+        #endif
+    }
+
     /// Hides the keyboard (iOS) / gives up focus.
     public func endEditing() {
         #if os(macOS)

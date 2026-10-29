@@ -58,6 +58,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
 
     public func makeUIView(context: Context) -> UIView {
         let tv = MarkdownUITextView()
+        // Find and replace (⌘F on a keyboard, or `MarkdownEditorController.showFind`).
+        tv.isFindInteractionEnabled = true
         let coordinator = context.coordinator
         coordinator.configuration = configuration
         coordinator.onLinkClick = onLinkClick
