@@ -97,7 +97,7 @@ public struct MarkdownEditorTheme: Sendable {
     public var rule: PlatformColor?
     /// Table grid lines. nil: ``mutedText`` at 50 %.
     public var tableBorder: PlatformColor?
-    /// Table header row fill. nil: ``mutedText`` at 8 %.
+    /// Table header row fill. nil: ``link`` (the accent) at 12 %; see ``tableHeaderFill``.
     public var tableHeaderBackground: PlatformColor?
     /// Text selection. nil: the system selection color.
     public var selection: PlatformColor?
@@ -192,4 +192,11 @@ public enum MarkdownFontName {
     public static let monospaced = "system-mono"
     /// SF Rounded.
     public static let rounded = "system-rounded"
+}
+
+extension MarkdownEditorTheme {
+    /// The header row fill: the theme's, or a light tint of the accent (link) color.
+    public var tableHeaderFill: PlatformColor {
+        tableHeaderBackground ?? link.withAlphaComponent(0.12)
+    }
 }

@@ -170,7 +170,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         (textView.configuration.theme.background ?? .systemBackground).setFill()
         UIRectFill(content)
         if cell.row == 0 {
-            textView.configuration.theme.mutedText.withAlphaComponent(0.08).setFill()
+            textView.configuration.theme.tableHeaderFill.setFill()
             UIRectFillUsingBlendMode(content, .normal)
         }
         tintColor.setStroke()
@@ -207,7 +207,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         guard let textView else { return }
 
         let field = TableCellTextField()
-        field.text = table[cell.row, cell.column]
+        field.text = Self.editableText(table[cell.row, cell.column])
         field.delegate = self
         field.grid = self
         let baseFont = textView.baseFont
@@ -232,6 +232,16 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         setNeedsDisplay()
         field.becomeFirstResponder()
         (superview as? UIScrollView)?.scrollRectToVisible(info.layout.cellRect(row: cell.row, column: cell.column), animated: true)
+        textView.editorController?.tableCellDidBeginEditing(field, row: cell.row, column: cell.column)
+    }
+
+    /// A formula cell is edited as `=SUM(A1:A2)`; it's stored back as
+    /// `[?](#SUM(A1:A2))` on commit. Cells with more than the formula link stay raw.
+    static func editableText(_ source: String) -> String {
+        guard let formula = MarkdownFormulas.formula(inCell: source),
+              MarkdownFormulas.cellSource(fromTyped: "=" + formula) == source.trimmingCharacters(in: .whitespaces)
+        else { return source }
+        return "=" + formula
     }
 
     private func positionField(for cell: (row: Int, column: Int)) {
@@ -248,15 +258,15 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         setNeedsDisplay()
     }
 
-    /// The header fill (muted at 8%) composited over the page background.
+    /// The header fill composited over the page background (the field is opaque).
     private static func headerBackground(_ theme: MarkdownEditorTheme) -> UIColor {
         UIColor { traits in
             let base = (theme.background ?? .systemBackground).resolvedColor(with: traits)
-            let tint = theme.mutedText.resolvedColor(with: traits)
+            let tint = theme.tableHeaderFill.resolvedColor(with: traits)
             var (r1, g1, b1, a1, r2, g2, b2, a2) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
             base.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
             tint.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
-            let t: CGFloat = 0.08
+            let t = a2
             return UIColor(red: r1 + (r2 - r1) * t, green: g1 + (g2 - g1) * t, blue: b1 + (b2 - b1) * t, alpha: 1)
         }
     }
@@ -335,6 +345,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
     }
 
     func textFieldDidEndEditing(_ textField: UITextField) {
+        textView?.editorController?.tableCellDidEndEditing(textField)
         guard !isFinishingEdit, field === textField else { return }
         commitAndMove(to: nil)
     }

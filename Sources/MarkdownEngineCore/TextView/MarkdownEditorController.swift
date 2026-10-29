@@ -35,10 +35,84 @@ public final class MarkdownEditorController {
     /// True while the editor has keyboard focus (iOS: while editing), e.g.
     /// to show a formatting bar above the keyboard.
     public private(set) var isEditing = false
+    /// The editor or one of its table cells has the keyboard.
+    public var isEditingAnything: Bool { isEditing || tableCell != nil }
     /// The block style of the caret's line, refreshed as the selection moves.
     public private(set) var currentBlockStyle: MarkdownFormatting.BlockStyle = .body
 
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
+
+    /// The table cell being edited in its own field (iOS grid), if any.
+    public struct TableCell: Equatable, Sendable {
+        /// 0 is the header row; data rows count from 1, as in formulas.
+        public let row: Int
+        public let column: Int
+        /// The cell's formula address ("B2"); nil for the header row.
+        public var address: String? {
+            guard row > 0 else { return nil }
+            return MarkdownEditorController.columnName(column) + String(row)
+        }
+    }
+
+    /// Set while a table cell is edited; formatting and formula buttons act on it.
+    public private(set) var tableCell: TableCell?
+    #if os(iOS)
+    @ObservationIgnored private weak var cellField: UITextField?
+
+    func tableCellDidBeginEditing(_ field: UITextField, row: Int, column: Int) {
+        cellField = field
+        tableCell = TableCell(row: row, column: column)
+    }
+
+    func tableCellDidEndEditing(_ field: UITextField) {
+        guard cellField === field else { return }
+        cellField = nil
+        tableCell = nil
+    }
+    #endif
+
+    /// A, B, … Z, AA, AB …
+    nonisolated static func columnName(_ index: Int) -> String {
+        var n = index + 1, name = ""
+        while n > 0 {
+            let r = (n - 1) % 26
+            name = String(UnicodeScalar(65 + r)!) + name
+            n = (n - 1) / 26
+        }
+        return name
+    }
+
+    // MARK: Table cell editing
+
+    /// Inserts `text` at the cell's caret (e.g. `:` or a cell reference).
+    public func insertInTableCell(_ text: String) {
+        #if os(iOS)
+        guard let field = cellField else { return }
+        field.insertText(text)
+        #endif
+    }
+
+    /// Starts or extends a formula with `FUNCTION()`, caret between the
+    /// parentheses. An empty cell becomes `=FUNCTION()`; other text gets
+    /// an `=` in front.
+    public func insertFunctionInTableCell(_ name: String) {
+        #if os(iOS)
+        guard let field = cellField else { return }
+        var text = field.text ?? ""
+        if !text.hasPrefix("=") {
+            text = "=" + text
+            field.text = text
+            if let end = field.position(from: field.endOfDocument, offset: 0) {
+                field.selectedTextRange = field.textRange(from: end, to: end)
+            }
+        }
+        field.insertText("\(name)()")
+        if let caret = field.selectedTextRange?.start, let inside = field.position(from: caret, offset: -1) {
+            field.selectedTextRange = field.textRange(from: inside, to: inside)
+        }
+        field.sendActions(for: .editingChanged)
+        #endif
+    }
 
     public init() {}
 
@@ -79,6 +153,21 @@ public final class MarkdownEditorController {
 
     /// Bold, italic, strikethrough or inline code around the selection (toggles).
     public func toggle(_ style: MarkdownFormatting.InlineStyle) {
+        #if os(iOS)
+        if let field = cellField, let range = field.selectedTextRange {
+            let text = field.text ?? ""
+            let start = field.offset(from: field.beginningOfDocument, to: range.start)
+            let end = field.offset(from: field.beginningOfDocument, to: range.end)
+            let edit = MarkdownFormatting.toggle(style, in: text, selection: NSRange(location: start, length: end - start))
+            field.text = (text as NSString).replacingCharacters(in: edit.range, with: edit.replacement)
+            if let a = field.position(from: field.beginningOfDocument, offset: edit.selection.location),
+               let b = field.position(from: a, offset: edit.selection.length) {
+                field.selectedTextRange = field.textRange(from: a, to: b)
+            }
+            field.sendActions(for: .editingChanged)
+            return
+        }
+        #endif
         perform("Format") { MarkdownFormatting.toggle(style, in: $0, selection: $1) }
     }
 
@@ -111,6 +200,7 @@ public final class MarkdownEditorController {
         #if os(macOS)
         textView?.window?.makeFirstResponder(nil)
         #else
+        cellField?.resignFirstResponder()
         textView?.resignFirstResponder()
         #endif
     }

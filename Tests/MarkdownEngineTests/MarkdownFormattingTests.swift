@@ -95,3 +95,23 @@ struct MarkdownFormattingTests {
         #expect(result.1.location == 10)
     }
 }
+
+@Suite("Table cell editing helpers")
+@MainActor
+struct TableCellEditingTests {
+    @Test func columnNames() {
+        #expect(MarkdownEditorController.columnName(0) == "A")
+        #expect(MarkdownEditorController.columnName(25) == "Z")
+        #expect(MarkdownEditorController.columnName(26) == "AA")
+        #expect(MarkdownEditorController.TableCell(row: 2, column: 1).address == "B2")
+        #expect(MarkdownEditorController.TableCell(row: 0, column: 1).address == nil)
+    }
+
+    #if os(iOS)
+    @Test func formulaCellsAreEditedAsEqualsFormulas() {
+        #expect(TableGridUIView.editableText("[?](#SUM(A1:A2))") == "=SUM(A1:A2)")
+        #expect(TableGridUIView.editableText("total [?](#SUM(A1:A2))") == "total [?](#SUM(A1:A2))")
+        #expect(TableGridUIView.editableText("plain") == "plain")
+    }
+    #endif
+}
