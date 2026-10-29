@@ -215,7 +215,7 @@ final class TableGridView: NSView, NSTextFieldDelegate {
             : baseFont
         field.textColor = textView.configuration.theme.bodyText
         field.alignment = MarkdownStyler.tableTextAlignment(table.alignments[cell.column])
-        let background = NSColor.textBackgroundColor
+        let background = textView.configuration.theme.background ?? NSColor.textBackgroundColor
         field.backgroundColor = cell.row == 0
             ? background.blended(withFraction: 0.08, of: textView.configuration.theme.mutedText) ?? background
             : background

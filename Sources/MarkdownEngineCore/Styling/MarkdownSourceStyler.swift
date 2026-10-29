@@ -39,6 +39,8 @@ enum MarkdownSourceStyler {
         )
         var attrs: [StyledRange] = []
         for block in DocumentAST.parse(text, scopedRanges: scopedRanges) where ctx.inScope(block.range) {
+            // First, so the syntax colors below win.
+            if let textColor = style.textColor { attrs.append((block.range, [.foregroundColor: textColor])) }
             styleBlock(block, ctx: ctx, into: &attrs)
         }
         // `{…}` attribute blocks after images/links come from the inline tokens.
@@ -65,7 +67,9 @@ enum MarkdownSourceStyler {
             guard let scopedRanges else { return true }
             return scopedRanges.contains { NSIntersectionRange($0, r).length > 0 || ($0.length == 0 && NSLocationInRange($0.location, r)) }
         }
-        var muted: [NSAttributedString.Key: Any] { [.foregroundColor: theme.mutedText] }
+        var muted: [NSAttributedString.Key: Any] { [.foregroundColor: style.markerColor ?? theme.mutedText] }
+        var listMarker: PlatformColor { style.listMarkerColor ?? accent }
+        var link: PlatformColor { style.linkColor ?? theme.link }
     }
 
     // MARK: Blocks
@@ -87,8 +91,8 @@ enum MarkdownSourceStyler {
 
         case .list(_, let items):
             for item in items {
-                attrs.append((item.marker, [.foregroundColor: ctx.accent]))
-                if let box = item.checkbox { attrs.append((box, [.foregroundColor: ctx.accent])) }
+                attrs.append((item.marker, [.foregroundColor: ctx.listMarker]))
+                if let box = item.checkbox { attrs.append((box, [.foregroundColor: ctx.listMarker])) }
                 if item.checked, item.contentRange.length > 0 {
                     attrs.append((item.contentRange, [.foregroundColor: ctx.theme.mutedText]))
                 }
@@ -165,7 +169,7 @@ enum MarkdownSourceStyler {
             defer { cursor = max(NSMaxRange(line), cursor + 1) }
             var i = line.location
             while i < NSMaxRange(line), ns.character(at: i) == 0x20 || ns.character(at: i) == 0x09 || ns.character(at: i) == 0x3E {
-                if ns.character(at: i) == 0x3E { attrs.append((NSRange(location: i, length: 1), [.foregroundColor: ctx.accent])) }
+                if ns.character(at: i) == 0x3E { attrs.append((NSRange(location: i, length: 1), [.foregroundColor: ctx.listMarker])) }
                 i += 1
             }
             let content = trimmedLine(NSRange(location: i, length: NSMaxRange(line) - i), ns)
@@ -184,6 +188,7 @@ enum MarkdownSourceStyler {
             case .emphasis(let kind, let range, let markers, let children):
                 let composed = adding(MarkdownASTStyler.traits(for: kind), to: font)
                 attrs.append((range, [.font: composed]))
+                if let color = ctx.style.emphasisColor { attrs.append((range, [.foregroundColor: color])) }
                 for marker in markers { attrs.append((marker, ctx.muted)) }
                 styleInlines(children, font: composed, ctx: ctx, into: &attrs)
 
@@ -198,12 +203,12 @@ enum MarkdownSourceStyler {
                                       .spellingState: 0]))
 
             case .link(_, let textRange, let url, let markers, let children):
-                attrs.append((textRange, [.foregroundColor: ctx.theme.link]))
+                attrs.append((textRange, [.foregroundColor: ctx.link]))
                 styleDestination(url, markers: markers, ctx: ctx, into: &attrs)
                 styleInlines(children, font: font, ctx: ctx, into: &attrs)
 
             case .image(_, let alt, let url, let markers):
-                attrs.append((alt, [.foregroundColor: ctx.theme.link]))
+                attrs.append((alt, [.foregroundColor: ctx.link]))
                 styleDestination(url, markers: markers, ctx: ctx, into: &attrs)
 
             case .inlineLatex(let range, _, let markers):
@@ -221,7 +226,7 @@ enum MarkdownSourceStyler {
         for (i, marker) in markers.enumerated() {
             attrs.append((marker, i == 4 ? [.foregroundColor: ctx.style.attributeColor, .spellingState: 0] : ctx.muted))
         }
-        if url.length > 0 { attrs.append((url, [.foregroundColor: ctx.theme.mutedText, .spellingState: 0])) }
+        if url.length > 0 { attrs.append((url, [.foregroundColor: ctx.style.urlColor ?? ctx.theme.mutedText, .spellingState: 0])) }
     }
 
     // MARK: Helpers

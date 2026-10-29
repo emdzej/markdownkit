@@ -205,8 +205,8 @@ extension MarkdownStyler {
         let table = layout.tableRect
         // Resolve under the real appearance: `.withAlphaComponent()` freezes a dynamic color otherwise.
         let muted = theme.mutedText.mdResolved(in: appearance)
-        let borderColor = muted.withAlphaComponent(0.5)
-        let headerFill = muted.withAlphaComponent(0.08)
+        let borderColor = theme.tableBorder?.mdResolved(in: appearance) ?? muted.withAlphaComponent(0.5)
+        let headerFill = theme.tableHeaderBackground?.mdResolved(in: appearance) ?? muted.withAlphaComponent(0.08)
 
         return PlatformImage.mdDrawing(size: layout.size) {
             headerFill.setFill()

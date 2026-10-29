@@ -82,6 +82,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         let fontChanged = coordinator.fontName != fontName || coordinator.fontSize != fontSize
         let editableChanged = tv.isEditable != isEditable
         let modeChanged = coordinator.configuration.renderingMode != configuration.renderingMode
+            || coordinator.configuration.appearanceRevision != configuration.appearanceRevision
         let fingerprint = configuration.services.contentFingerprint
         let contentChanged = coordinator.lastContentFingerprint != nil && coordinator.lastContentFingerprint != fingerprint
         coordinator.lastContentFingerprint = fingerprint
@@ -122,8 +123,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         )
         tv.spellCheckingType = configuration.spellChecking.continuousSpellChecking ? .yes : .no
         tv.autocorrectionType = configuration.spellChecking.automaticSpellingCorrection ? .yes : .no
-        tv.backgroundColor = .systemBackground
-        tv.tintColor = configuration.theme.link
+        tv.backgroundColor = configuration.activeBackground ?? .systemBackground
+        // Tint drives the caret and selection handles; selection fill follows it.
+        tv.tintColor = configuration.theme.caret ?? configuration.theme.link
     }
 }
 #endif

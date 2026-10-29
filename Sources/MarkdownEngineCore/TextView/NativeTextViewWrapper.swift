@@ -172,13 +172,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.maxOverscrollPoints = configuration.overscroll.maxPoints
         textView.minOverscrollPoints = configuration.overscroll.minPoints
         context.coordinator.configuration = configuration
-        textView.insertionPointColor = configuration.theme.bodyText
-        // NSTextView draws `.link` runs with these, over the styler's foreground color.
-        textView.linkTextAttributes = [
-            .foregroundColor: configuration.theme.link,
-            .underlineStyle: NSUnderlineStyle.single.rawValue,
-            .cursor: NSCursor.pointingHand,
-        ]
+        Self.applyChrome(configuration, to: textView, in: scrollView)
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.isRichText = true
@@ -386,13 +380,15 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
                 context.coordinator.restyleParagraphs([fullRange], in: textView)
             }
         }
-        if configuration.renderingMode != context.coordinator.configuration.renderingMode,
+        if configuration.renderingMode != context.coordinator.configuration.renderingMode
+            || configuration.appearanceRevision != context.coordinator.configuration.appearanceRevision,
            context.coordinator.didInitialFormatting {
+            Self.applyChrome(configuration, to: textView, in: nsView)
             switchRenderingMode(to: configuration, textView: textView, scrollView: nsView, coordinator: context.coordinator)
         }
         textView.isEditable = isEditable
         textView.isSelectable = true
-        textView.insertionPointColor = isEditable ? context.coordinator.configuration.theme.bodyText : .clear
+        textView.insertionPointColor = isEditable ? context.coordinator.configuration.theme.caretColor : .clear
         let fontChanged = (context.coordinator.fontName != fontName) || (context.coordinator.fontSize != fontSize)
         if context.coordinator.didInitialFormatting
             && context.coordinator.lastSyncedText == text
@@ -491,11 +487,14 @@ private extension NativeTextViewWrapper {
         )
         let topOffset = Self.lineTop(of: topCharacter, in: textView).map { $0 - textView.visibleRect.minY } ?? 0
 
-        coordinator.configuration.renderingMode = configuration.renderingMode
-        coordinator.configuration.source = configuration.source
+        // Everything but the services (their own fingerprint swaps those).
+        var updated = configuration
+        updated.services = coordinator.configuration.services
+        coordinator.configuration = updated
         if let native = textView as? NativeTextView {
-            native.configuration.renderingMode = configuration.renderingMode
-            native.configuration.source = configuration.source
+            var nativeUpdated = configuration
+            nativeUpdated.services = native.configuration.services
+            native.configuration = nativeUpdated
             native.removeAllWideTableOverlays()
         }
         coordinator.revealedTableLocation = nil
@@ -518,6 +517,27 @@ private extension NativeTextViewWrapper {
             scrollView.reflectScrolledClipView(scrollView.contentView)
             (scrollView as? ClampedScrollView)?.clampToInsets()
         }
+    }
+
+    /// Background, caret, selection and link colors from the theme.
+    static func applyChrome(_ configuration: MarkdownEditorConfiguration, to textView: NSTextView, in scrollView: NSScrollView) {
+        let theme = configuration.theme
+        if let background = configuration.activeBackground {
+            scrollView.drawsBackground = true
+            scrollView.backgroundColor = background
+        } else {
+            scrollView.drawsBackground = false
+        }
+        textView.insertionPointColor = theme.caretColor
+        var selected = textView.selectedTextAttributes
+        selected[.backgroundColor] = theme.selection ?? NSColor.selectedTextBackgroundColor
+        textView.selectedTextAttributes = selected
+        // NSTextView draws `.link` runs with these, over the styler's foreground color.
+        textView.linkTextAttributes = [
+            .foregroundColor: configuration.renderingMode == .source ? (configuration.source.linkColor ?? theme.link) : theme.link,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .cursor: NSCursor.pointingHand,
+        ]
     }
 
     /// The y of the layout fragment holding `location`, in text view coordinates.

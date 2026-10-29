@@ -167,7 +167,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         // a field grown past its cell gets the ring around its full width.
         var content = info.layout.cellRect(row: cell.row, column: cell.column)
         if let field { content = content.union(CGRect(x: field.frame.minX, y: content.minY, width: field.frame.width, height: content.height)) }
-        UIColor.systemBackground.setFill()
+        (textView.configuration.theme.background ?? .systemBackground).setFill()
         UIRectFill(content)
         if cell.row == 0 {
             textView.configuration.theme.mutedText.withAlphaComponent(0.08).setFill()
@@ -218,7 +218,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         field.textAlignment = MarkdownStyler.tableTextAlignment(table.alignments[cell.column])
         field.borderStyle = .none
         // Opaque: a grown field covers neighbouring cells.
-        field.backgroundColor = cell.row == 0 ? Self.headerBackground(textView.configuration.theme) : .systemBackground
+        field.backgroundColor = cell.row == 0 ? Self.headerBackground(textView.configuration.theme) : (textView.configuration.theme.background ?? .systemBackground)
         field.addTarget(self, action: #selector(fieldTextChanged), for: .editingChanged)
         field.returnKeyType = .next
         field.autocorrectionType = .no
@@ -251,7 +251,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
     /// The header fill (muted at 8%) composited over the page background.
     private static func headerBackground(_ theme: MarkdownEditorTheme) -> UIColor {
         UIColor { traits in
-            let base = UIColor.systemBackground.resolvedColor(with: traits)
+            let base = (theme.background ?? .systemBackground).resolvedColor(with: traits)
             let tint = theme.mutedText.resolvedColor(with: traits)
             var (r1, g1, b1, a1, r2, g2, b2, a2) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
             base.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)

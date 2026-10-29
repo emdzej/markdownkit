@@ -411,7 +411,7 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
         mdPushGraphicsContext(context)
         defer { mdPopGraphicsContext() }
 
-        let strokeColor = theme.strikethroughColor.withAlphaComponent(0.4)
+        let strokeColor = theme.rule ?? theme.strikethroughColor.withAlphaComponent(0.4)
         strokeColor.setFill()
 
         // Walk each line fragment in this layout fragment and paint a
@@ -462,7 +462,7 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
 
         mdPushGraphicsContext(context)
         defer { mdPopGraphicsContext() }
-        theme.mutedText.withAlphaComponent(0.5).setFill()
+        (theme.blockquoteBar ?? theme.mutedText.withAlphaComponent(0.5)).setFill()
 
         let fragLocation = fragmentNSRange?.location ?? 0
         let leftEdge = point.x - layoutFragmentFrame.origin.x

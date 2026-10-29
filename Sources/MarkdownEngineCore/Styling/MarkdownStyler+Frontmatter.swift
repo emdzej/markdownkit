@@ -192,7 +192,8 @@ extension MarkdownStyler {
         let boldFont = PlatformFont.md(descriptor: font.fontDescriptor, traits: .bold, size: font.pointSize) ?? font
         let body = theme.bodyText.mdResolved(in: appearance)
         let muted = theme.mutedText.mdResolved(in: appearance)
-        let link = theme.link.mdResolved(in: appearance)
+        let link = (theme.tagChip ?? theme.link).mdResolved(in: appearance)
+        let chipFill = theme.chipBackground?.mdResolved(in: appearance) ?? muted.withAlphaComponent(0.12)
         let pin = PlatformColor.systemOrange.mdResolved(in: appearance)
 
         let padX: CGFloat = 8, padY: CGFloat = 3, gap: CGFloat = 6
@@ -214,7 +215,7 @@ extension MarkdownStyler {
         for chip in chips {
             let label = NSMutableAttributedString()
             var icon: PlatformImage?
-            var fill = muted.withAlphaComponent(0.12)
+            var fill = chipFill
             switch chip {
             case .pinned:
                 icon = PlatformImage.mdSymbol("pin.fill")?.mdApplying(.init(paletteColors: [pin]))

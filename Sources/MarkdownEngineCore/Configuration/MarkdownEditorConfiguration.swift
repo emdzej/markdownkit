@@ -49,6 +49,10 @@ public struct MarkdownEditorConfiguration: Sendable {
     public var safeAreaInsets: SafeAreaInsets
     public var scrollers: ScrollersPolicy
     public var textInsets: TextInsets
+    /// Bump when the theme, fonts or highlighter change in ways the engine
+    /// can't compare (colors are dynamic objects): the editor restyles the
+    /// whole document in place, keeping selection and scroll position.
+    public var appearanceRevision: String = ""
     /// Centered reading-column width; wide tables break out to full width. nil = full width (default).
     public var readingWidth: CGFloat?
     public var spellChecking: SpellCheckingPolicy
@@ -108,6 +112,11 @@ public struct MarkdownEditorConfiguration: Sendable {
     }
 
     public static let `default` = MarkdownEditorConfiguration()
+
+    /// The background for the current rendering mode; nil means the platform default.
+    public var activeBackground: PlatformColor? {
+        renderingMode == .source ? (source.background ?? theme.background) : theme.background
+    }
 }
 
 // MARK: - Rendering mode
@@ -137,6 +146,20 @@ public struct SourceModeStyle: Sendable {
     public var keyColor: PlatformColor
     /// `{…}` attribute blocks.
     public var attributeColor: PlatformColor
+    /// Plain text. nil: the theme's body text.
+    public var textColor: PlatformColor?
+    /// Syntax markers (`**`, `[`, `](`, `|`, fences…). nil: the theme's muted text.
+    public var markerColor: PlatformColor?
+    /// Emphasis / strong text. nil: unchanged text color (just the font trait).
+    public var emphasisColor: PlatformColor?
+    /// Link and image text. nil: the theme's link color.
+    public var linkColor: PlatformColor?
+    /// Link and image destinations. nil: the theme's muted text.
+    public var urlColor: PlatformColor?
+    /// List and quote markers. nil: ``headingColor`` (or the theme's link color).
+    public var listMarkerColor: PlatformColor?
+    /// Background in source mode. nil: the theme's background.
+    public var background: PlatformColor?
 
     public init(
         fontName: String? = nil,
@@ -144,7 +167,14 @@ public struct SourceModeStyle: Sendable {
         headingColor: PlatformColor? = nil,
         codeColor: PlatformColor = .systemPink,
         keyColor: PlatformColor = .systemOrange,
-        attributeColor: PlatformColor = .systemPurple
+        attributeColor: PlatformColor = .systemPurple,
+        textColor: PlatformColor? = nil,
+        markerColor: PlatformColor? = nil,
+        emphasisColor: PlatformColor? = nil,
+        linkColor: PlatformColor? = nil,
+        urlColor: PlatformColor? = nil,
+        listMarkerColor: PlatformColor? = nil,
+        background: PlatformColor? = nil
     ) {
         self.fontName = fontName
         self.fontScale = fontScale
@@ -152,6 +182,13 @@ public struct SourceModeStyle: Sendable {
         self.codeColor = codeColor
         self.keyColor = keyColor
         self.attributeColor = attributeColor
+        self.textColor = textColor
+        self.markerColor = markerColor
+        self.emphasisColor = emphasisColor
+        self.linkColor = linkColor
+        self.urlColor = urlColor
+        self.listMarkerColor = listMarkerColor
+        self.background = background
     }
 
     public static let `default` = SourceModeStyle()
@@ -159,7 +196,7 @@ public struct SourceModeStyle: Sendable {
     /// The source font for an editor font size of `size`.
     func font(size: CGFloat) -> PlatformFont {
         let scaled = (size * fontScale).rounded()
-        if let fontName, let font = PlatformFont(name: fontName, size: scaled) { return font }
+        if let fontName { return PlatformFont.md(named: fontName, size: scaled) }
         return PlatformFont.monospacedSystemFont(ofSize: scaled, weight: .regular)
     }
 }

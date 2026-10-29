@@ -339,7 +339,25 @@ extension PlatformFont {
     /// that `init(name:size:)` doesn't resolve reliably — UIKit returns
     /// Times for them — so those map straight to the system font.
     static func md(named name: String, size: CGFloat) -> PlatformFont {
+        switch name {
+        case MarkdownFontName.serif: return .md(design: .serif, size: size)
+        case MarkdownFontName.monospaced: return .monospacedSystemFont(ofSize: size, weight: .regular)
+        case MarkdownFontName.rounded: return .md(design: .rounded, size: size)
+        case MarkdownFontName.system: return .systemFont(ofSize: size)
+        default: break
+        }
         if !name.hasPrefix("."), let font = PlatformFont(name: name, size: size) { return font }
         return .systemFont(ofSize: size)
+    }
+
+    /// The system font in `design`, or the plain system font if the design isn't available.
+    static func md(design: PlatformFontDescriptor.SystemDesign, size: CGFloat) -> PlatformFont {
+        let base = PlatformFont.systemFont(ofSize: size)
+        guard let descriptor = base.fontDescriptor.withDesign(design) else { return base }
+        #if os(macOS)
+        return PlatformFont(descriptor: descriptor, size: size) ?? base
+        #else
+        return PlatformFont(descriptor: descriptor, size: size)
+        #endif
     }
 }

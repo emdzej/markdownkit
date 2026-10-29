@@ -272,7 +272,7 @@ enum MarkdownASTStyler {
 
         case .heading(let level, let range, let markers, let inlines):
             let multiplier = ctx.config.headings.fontMultiplier(for: level)
-            let headingBase = PlatformFont.md(named: ctx.fontName, size: ctx.baseFont.pointSize * multiplier)
+            let headingBase = PlatformFont.md(named: ctx.theme.headingFontName ?? ctx.fontName, size: ctx.baseFont.pointSize * multiplier)
             let headingFont = adding(.bold, to: headingBase)
             let lineHeight = ceil(headingFont.ascender - headingFont.descender + headingFont.leading) + 1
             let headingPara = NSMutableParagraphStyle()
@@ -282,6 +282,7 @@ enum MarkdownASTStyler {
             headingPara.paragraphSpacing = ctx.baseParagraphSpacing
             attrs.append((ctx.ns.paragraphRange(for: range), [.paragraphStyle: headingPara]))
             attrs.append((range, [.font: headingFont]))
+            if let color = ctx.theme.headingText { attrs.append((range, [.foregroundColor: color])) }
             for marker in markers {
                 attrs.append((marker, [.foregroundColor: ctx.theme.headingMarker]))
             }
@@ -350,7 +351,7 @@ enum MarkdownASTStyler {
             attrs.append((ctx.ns.paragraphRange(for: tokenRange), [.paragraphStyle: para]))
 
             if contentRange.length > 0 {
-                attrs.append((contentRange, [.foregroundColor: ctx.theme.mutedText]))
+                attrs.append((contentRange, [.foregroundColor: ctx.theme.blockquoteText ?? ctx.theme.mutedText]))
             }
             if ctx.isActive(tokenRange) {
                 attrs.append((markerRange, [.foregroundColor: ctx.theme.mutedText]))
@@ -433,6 +434,7 @@ enum MarkdownASTStyler {
 
             case .code(let range, let contentRange):
                 attrs.append((contentRange, [.font: ctx.codeFont, .backgroundColor: ctx.codeBackground]))
+                if let color = ctx.theme.inlineCodeText { attrs.append((contentRange, [.foregroundColor: color])) }
                 // Suppress spell-check underlines on inline `code` spans (markers + content).
                 attrs.append((range, [.spellingState: 0]))
                 let markerAttrs: [NSAttributedString.Key: Any] = ctx.isActive(range)

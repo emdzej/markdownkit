@@ -214,8 +214,8 @@ extension MarkdownStyler {
 
         let cardSize = CGSize(width: width, height: ceil(cardHeight))
         let radius = style.cornerRadius
-        let fill = muted.withAlphaComponent(0.06)
-        let border = muted.withAlphaComponent(0.35)
+        let fill = theme.cardBackground?.mdResolved(in: appearance) ?? muted.withAlphaComponent(0.06)
+        let border = theme.cardBorder?.mdResolved(in: appearance) ?? muted.withAlphaComponent(0.35)
 
         return PlatformImage.mdDrawing(size: cardSize) {
             let outline = PlatformBezierPath(roundedRect: CGRect(origin: .zero, size: cardSize).insetBy(dx: 0.5, dy: 0.5),
