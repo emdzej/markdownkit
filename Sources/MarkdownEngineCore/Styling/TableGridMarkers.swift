@@ -50,7 +50,8 @@ extension TableGridLayout {
         case .rowHandle(let r):
             let length = min(Self.handleLength, rowHeight(r) - 6)
             let mid = rowTop[r] + rowHeight(r) / 2
-            return CGRect(x: t.minX + 3, y: mid - length / 2, width: Self.handleThickness, height: length)
+            // Thinner than column handles: it sits in the first cell's padding.
+            return CGRect(x: t.minX + 3, y: mid - length / 2, width: 4, height: length)
         case .insertColumn(let i):
             let d = Self.plusDiameter
             let x = min(max(columnLeft[i] - b / 2, d / 2), size.width - d / 2)
