@@ -58,6 +58,8 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     /// Start location of the table shown as raw markdown ("Edit as Markdown");
     /// nil while every table is a grid. See `+Tables.swift`.
     var revealedTableLocation: Int?
+    /// Pending restyle of width-dependent images after the column width changes.
+    var widthRestyleWork: DispatchWorkItem?
     var isWritingToolsActive: Bool = false
     var wtStartDocumentId: String?
     weak var wtChildWindow: NSWindow?

@@ -128,6 +128,7 @@ extension MarkdownStyler {
         paragraphSpacingBefore: CGFloat,
         paragraphSpacing: CGFloat,
         alignment: NSTextAlignment,
+        leadingIndent: CGFloat = 0,
         mode: RenderedStandaloneBlockMode,
         ctx: StylingContext,
         attrs: inout [StyledRange]
@@ -138,6 +139,10 @@ extension MarkdownStyler {
         let baseLineHeight = layoutBridgeDefaultLineHeight(for: ctx.baseFont, using: ctx.layoutBridge)
         para.paragraphSpacingBefore = max(para.paragraphSpacingBefore, paragraphSpacingBefore)
         para.alignment = alignment
+        // Offsets the anchor glyph (and so the image). Paragraph alignment
+        // can't place a collapsed block: the hidden source has no width.
+        para.firstLineHeadIndent = leadingIndent
+        para.headIndent = leadingIndent
 
         switch mode {
         case .collapsedSource(let markerTexts):

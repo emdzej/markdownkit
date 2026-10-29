@@ -75,6 +75,7 @@ configuration.services = services
 ### Service Protocols
 
 - ``ImageProvider``
+- ``ImageRequest``
 - ``SyntaxHighlighter``
 - ``LatexRenderer``
 
@@ -88,6 +89,11 @@ configuration.services = services
 - ``NoOpImageProvider``
 - ``PlainTextSyntaxHighlighter``
 - ``NoOpLatexRenderer``
+
+### Images and Link Attributes
+
+- ``MarkdownAttributes``
+- ``ImageStyle``
 
 ### Selection
 

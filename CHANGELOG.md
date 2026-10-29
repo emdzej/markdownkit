@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `{…}` attributes after images and links (`![](a.png){.small .center}`,
+  `[Doc](a.pdf){.preview}`), parsed into `MarkdownAttributes` and hidden
+  like other markers when the caret is elsewhere. Images honour `.icon`
+  (inline, line height), `.small` / `.medium` / `.large` / `.full`,
+  `width=` / `height=`, `.left` / `.center` / `.right`, and the Obsidian
+  `![alt|200](…)` width hint. `ImageRequest` gains `attributes`;
+  `ImageStyle` gains `smallWidth` / `mediumWidth` / `largeWidth` and
+  `displaySize(...)`. On macOS, image paragraphs restyle when the column
+  width changes.
 - File drops: `NativeTextViewWrapper(onDropFiles:)` (macOS and iOS) passes
   dropped files to the embedder, which stores them and returns the markdown
   to insert at the drop point (one undoable edit). `DroppedFile` describes

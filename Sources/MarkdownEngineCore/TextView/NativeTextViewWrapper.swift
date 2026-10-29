@@ -250,6 +250,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
                 }
                 context.coordinator.didEnsureLayoutForCurrentDocument = false
                 context.coordinator.updateCodeBlockSelection(textView: textView)
+                context.coordinator.scheduleWidthDependentRestyle(textView)
             }
             // Only react with overscroll recalc when the viewport itself resizes
             // (window resize). Without this guard, TextKit-induced frame changes echo

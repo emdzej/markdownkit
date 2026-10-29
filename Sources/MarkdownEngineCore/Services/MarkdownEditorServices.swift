@@ -41,9 +41,13 @@ public protocol ImageProvider: Sendable {
 public struct ImageRequest: Sendable, Equatable {
     /// The `source` of `![alt](source)`, verbatim.
     public let source: String
+    /// The `{…}` attributes after the image (size, alignment, …), so a
+    /// provider can pick a thumbnail of a suitable resolution.
+    public let attributes: MarkdownAttributes
 
-    public init(source: String) {
+    public init(source: String, attributes: MarkdownAttributes = MarkdownAttributes()) {
         self.source = source
+        self.attributes = attributes
     }
 }
 

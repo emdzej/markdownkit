@@ -32,7 +32,7 @@ When we started building **[Nodes](https://apps.apple.com/de/app/nodes-by-the-we
 
 - **Live Markdown styling** — bold, italic, strikethrough, headings, lists, blockquotes, GFM tables, code, links, task checkboxes, horizontal rules
 - **WYSIWYG tables** (macOS and iOS) — edit GFM tables as a grid: cell editing, Tab/Return navigation, row/column/alignment context menu, "Edit as Markdown"; the file stays a plain pipe table
-- **Images** — standard Markdown `![alt](source)`, embedder supplies the bytes
+- **Images** — standard Markdown `![alt](source)`, embedder supplies the bytes; `{…}` attributes set size and alignment (`{.small}`, `{.icon}`, `{width=320 .center}`)
 - **LaTeX** — both block (`$$ … $$`) and inline (`$…$`), embedder supplies
   the renderer
 - **File drops** — dropped files go to your `onDropFiles` hook, which stores them and returns the link to insert
@@ -207,6 +207,28 @@ configuration.overscroll.percent = 0.4
 configuration.lists.helpersEnabled = false
 configuration.safeAreaInsets = SafeAreaInsets(top: 56)   // headroom under a translucent toolbar
 ```
+
+### Image and Link Attributes
+
+A `{…}` block written directly after an image or link (Pandoc syntax:
+`.class`, `#id`, `key=value`) is parsed into `MarkdownAttributes`, hidden
+while the caret is elsewhere, and shown dimmed when the caret is on it.
+
+```markdown
+![](diagram.png){.small}          160 pt max width (.medium 320, .large 640)
+![](photo.jpg){.full}             full column width
+![](chart.png){width=320 .center} explicit points; .left / .center / .right
+Built with ![](swift.png){.icon}  inline, at line height
+![photo|200](photo.jpg)           Obsidian width hint, also honoured
+[Spec](spec.pdf){.preview}        parsed; preview cards are not rendered yet
+```
+
+Images keep their aspect ratio and never grow past the column; `.small`,
+`.medium` and `.large` never upscale. The widths are in `ImageStyle`, and
+`ImageRequest.attributes` lets your `ImageProvider` pick a suitably sized
+thumbnail. Text that isn't valid attribute syntax, or a brace after a
+space, stays ordinary text. `MarkdownAttributes.setSize(_:)` and
+`markdown()` rewrite the block for a size menu.
 
 ### Dropping Files
 

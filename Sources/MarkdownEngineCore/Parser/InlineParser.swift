@@ -39,9 +39,9 @@ indirect enum InlineNode: Equatable {
     case code(range: NSRange, content: NSRange)
     /// `*`/`_` emphasis. `markers` is `[openMarker, closeMarker]`.
     case emphasis(EmphasisKind, range: NSRange, markers: [NSRange], children: [InlineNode])
-    /// `[text](url)`. `markers` is `[ "[", "]", "(", ")" ]`; text is recursively parsed.
+    /// `[text](url)`. `markers` is `[ "[", "]", "(", ")" ]`, plus the `{…}` attribute block when present; text is recursively parsed.
     case link(range: NSRange, textRange: NSRange, url: NSRange, markers: [NSRange], children: [InlineNode])
-    /// `![alt](url)`. `markers` is `[ "![", "]", "(", ")" ]`. Alt is opaque.
+    /// `![alt](url)`. `markers` is `[ "![", "]", "(", ")" ]`, plus the `{…}` attribute block when present. Alt is opaque.
     case image(range: NSRange, alt: NSRange, url: NSRange, markers: [NSRange])
     /// `~~text~~`. `markers` is `[openMarker, closeMarker]`; content recursively parsed.
     case strikethrough(range: NSRange, markers: [NSRange], children: [InlineNode])
@@ -65,6 +65,8 @@ enum InlineParser {
     private static let backslash: unichar = 0x5C
     private static let tilde: unichar = 0x7E
     private static let dollar: unichar = 0x24
+    private static let lbrace: unichar = 0x7B
+    private static let rbrace: unichar = 0x7D
 
     // MARK: - Entry point
 
@@ -222,8 +224,9 @@ enum InlineParser {
               let closeParen = balancedParen(ns, len, from: closeBracket + 2) else { return nil }
         let urlStart = closeBracket + 2
         guard closeParen > urlStart else { return nil }
+        let attributes = attributeBlock(ns, len, after: closeParen)
         return .image(
-            range: NSRange(location: i, length: (closeParen + 1) - i),
+            range: NSRange(location: i, length: NSMaxRange(attributes ?? NSRange(location: closeParen, length: 1)) - i),
             alt: NSRange(location: altStart, length: closeBracket - altStart),
             url: NSRange(location: urlStart, length: closeParen - urlStart),
             markers: [
@@ -231,7 +234,7 @@ enum InlineParser {
                 NSRange(location: closeBracket, length: 1),
                 NSRange(location: closeBracket + 1, length: 1),
                 NSRange(location: closeParen, length: 1),
-            ]
+            ] + (attributes.map { [$0] } ?? [])
         )
     }
 
@@ -244,8 +247,9 @@ enum InlineParser {
               let closeParen = balancedParen(ns, len, from: closeBracket + 2) else { return nil }
         let urlStart = closeBracket + 2
         guard closeParen > urlStart else { return nil }
+        let attributes = attributeBlock(ns, len, after: closeParen)
         return .link(
-            range: NSRange(location: i, length: (closeParen + 1) - i),
+            range: NSRange(location: i, length: NSMaxRange(attributes ?? NSRange(location: closeParen, length: 1)) - i),
             textRange: NSRange(location: textStart, length: closeBracket - textStart),
             url: NSRange(location: urlStart, length: closeParen - urlStart),
             markers: [
@@ -253,8 +257,16 @@ enum InlineParser {
                 NSRange(location: closeBracket, length: 1),
                 NSRange(location: closeBracket + 1, length: 1),
                 NSRange(location: closeParen, length: 1),
-            ]
+            ] + (attributes.map { [$0] } ?? [])
         )
+    }
+
+    /// A valid `{…}` attribute block starting right after `closeParen`, on the same line.
+    private static func attributeBlock(_ ns: NSString, _ len: Int, after closeParen: Int) -> NSRange? {
+        let open = closeParen + 1
+        guard peek(ns, open, len) == lbrace, let close = findChar(ns, len, from: open + 1, char: rbrace) else { return nil }
+        let range = NSRange(location: open, length: close + 1 - open)
+        return MarkdownAttributes(source: ns.substring(with: range)) != nil ? range : nil
     }
 
     /// `~~ text ~~` — text has no `~`; not part of a longer `~` run.

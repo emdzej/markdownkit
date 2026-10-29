@@ -319,22 +319,80 @@ public struct ImageStyle: Sendable {
     public var paragraphSpacing: CGFloat
     /// Gap between the source line and the rendered image (visibleSource mode).
     public var imageGap: CGFloat
+    /// Maximum widths for `{.small}`, `{.medium}` and `{.large}`.
+    public var smallWidth: CGFloat
+    public var mediumWidth: CGFloat
+    public var largeWidth: CGFloat
 
     public init(
         minimumWidth: CGFloat = 50,
         fallbackMaxWidth: CGFloat = 650,
         unreasonableMaxWidth: CGFloat = 1_000_000,
         paragraphSpacing: CGFloat = 8,
-        imageGap: CGFloat = 8
+        imageGap: CGFloat = 8,
+        smallWidth: CGFloat = 160,
+        mediumWidth: CGFloat = 320,
+        largeWidth: CGFloat = 640
     ) {
         self.minimumWidth = minimumWidth
         self.fallbackMaxWidth = fallbackMaxWidth
         self.unreasonableMaxWidth = unreasonableMaxWidth
         self.paragraphSpacing = paragraphSpacing
         self.imageGap = imageGap
+        self.smallWidth = smallWidth
+        self.mediumWidth = mediumWidth
+        self.largeWidth = largeWidth
     }
 
     public static let `default` = ImageStyle()
+
+    /// The size an image is drawn at.
+    ///
+    /// - `width=` / `height=` (or the alt-text `widthHint`) set the size in
+    ///   points; with both, the image fits inside that box.
+    /// - `.icon` is line height; `.small` / `.medium` / `.large` cap the
+    ///   width (never upscaling); `.full` fills the column.
+    /// - With no size the image keeps its natural width.
+    ///
+    /// The aspect ratio is always kept and the width never exceeds `maxWidth`.
+    public func displaySize(
+        natural: CGSize,
+        attributes: MarkdownAttributes,
+        widthHint: CGFloat? = nil,
+        maxWidth: CGFloat,
+        lineHeight: CGFloat
+    ) -> CGSize {
+        guard natural.width > 0, natural.height > 0 else { return natural }
+        let aspect = natural.height / natural.width
+        var width: CGFloat
+        let explicitWidth = attributes.width ?? (attributes.size == nil ? widthHint : nil)
+        switch (explicitWidth, attributes.height) {
+        case let (w?, h?): width = min(w, h / aspect)
+        case let (w?, nil): width = w
+        case let (nil, h?): width = h / aspect
+        case (nil, nil):
+            switch attributes.size {
+            case .icon: width = lineHeight / aspect
+            case .small: width = min(natural.width, smallWidth)
+            case .medium: width = min(natural.width, mediumWidth)
+            case .large: width = min(natural.width, largeWidth)
+            case .full: width = maxWidth
+            case nil: width = max(natural.width, minimumWidth)
+            }
+        }
+        width = min(width, maxWidth)
+        return CGSize(width: width, height: width * aspect)
+    }
+
+    /// The Obsidian width hint in alt text: `![photo|200](…)` or
+    /// `![|200x100](…)` gives 200.
+    public static func widthHint(alt: String) -> CGFloat? {
+        guard let bar = alt.lastIndex(of: "|") else { return nil }
+        let spec = alt[alt.index(after: bar)...].trimmingCharacters(in: .whitespaces)
+        let widthPart = spec.split(separator: "x", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""
+        guard let n = Int(widthPart), n > 0 else { return nil }
+        return CGFloat(n)
+    }
 }
 
 // MARK: - LaTeX
