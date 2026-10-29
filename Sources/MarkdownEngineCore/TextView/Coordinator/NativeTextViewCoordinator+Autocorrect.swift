@@ -37,7 +37,7 @@ extension NativeTextViewCoordinator {
         let inSpellcheckSuppressedToken: Bool
         if let allTokens = allTokens {
             inSpellcheckSuppressedToken = allTokens.contains { token in
-                (token.kind == .wikiLink || token.kind == .link || token.kind == .imageEmbed)
+                (token.kind == .link || token.kind == .imageLink)
                     && NSLocationInRange(caretLocation, token.range)
             }
         } else {
@@ -83,7 +83,7 @@ extension NativeTextViewCoordinator {
     func isInsideSpellcheckSuppressedToken(location: Int, in text: String) -> Bool {
         let parsed = parsedDocument(for: text)
         return parsed.tokens.contains { token in
-            guard token.kind == .wikiLink || token.kind == .link || token.kind == .imageEmbed else {
+            guard token.kind == .link || token.kind == .imageLink else {
                 return false
             }
             return NSLocationInRange(location, token.range)
@@ -93,7 +93,7 @@ extension NativeTextViewCoordinator {
     func isInsideSpellcheckSuppressedToken(range: NSRange, in text: String) -> Bool {
         let parsed = parsedDocument(for: text)
         return parsed.tokens.contains { token in
-            guard token.kind == .wikiLink || token.kind == .link || token.kind == .imageEmbed else {
+            guard token.kind == .link || token.kind == .imageLink else {
                 return false
             }
             return NSIntersectionRange(token.range, range).length > 0

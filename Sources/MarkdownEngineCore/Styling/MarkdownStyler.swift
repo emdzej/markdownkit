@@ -10,7 +10,7 @@
 // builds the `StylingContext` and runs the PlatformImage rendering passes that still
 // consume tokens:
 //   - MarkdownStyler+Latex.swift   (block + inline LaTeX rendering)
-//   - MarkdownStyler+Images.swift  (image embeds / image links)
+//   - MarkdownStyler+Images.swift  (image links)
 //   - MarkdownStyler+Tables.swift  (rendered tables)
 #if os(macOS)
 import AppKit
@@ -51,7 +51,6 @@ enum MarkdownStyler {
         layoutBridge: LayoutBridge? = nil,
         caretLocation: Int,
         activeTokenIndices: Set<Int>,
-        wikiLinkIDProvider: @escaping (NSRange) -> String? = { _ in nil },
         precomputedTokens: [MarkdownToken]? = nil,
         scopedRanges: [NSRange]? = nil,
         configuration: MarkdownEditorConfiguration = .default
@@ -84,13 +83,12 @@ enum MarkdownStyler {
         // AST-native styler handles everything but PlatformImage rendering (incl. the composition fixes).
         result += MarkdownASTStyler.styleAttributes(
             text: text, fontName: fontName, fontSize: fontSize,
-            caretLocation: caretLocation, wikiLinkIDProvider: wikiLinkIDProvider,
+            caretLocation: caretLocation,
             scopedRanges: scopedRanges, configuration: configuration
         )
         // PlatformImage rendering reuses the existing, proven machinery.
         result += styleBlockLatex(ctx)
         result += styleInlineLatex(ctx)
-        result += styleImageEmbeds(ctx)
         result += styleImageLinks(ctx)
         result += styleTables(ctx)
         return result

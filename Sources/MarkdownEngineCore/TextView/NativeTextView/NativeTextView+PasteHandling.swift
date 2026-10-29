@@ -22,8 +22,8 @@ extension NativeTextView {
 
         let pasteboard = NSPasteboard.general
 
-        if let imageEmbed = onPasteImage?(pasteboard), !imageEmbed.isEmpty {
-            insertBlockEmbed(imageEmbed)
+        if let imageMarkdown = onPasteImage?(pasteboard), !imageMarkdown.isEmpty {
+            insertBlockImage(imageMarkdown)
             return
         }
 
@@ -68,7 +68,7 @@ extension NativeTextView {
         insertText(prepared, replacementRange: sel)
     }
 
-    private func insertBlockEmbed(_ embed: String) {
+    private func insertBlockImage(_ markdown: String) {
         let sel = selectedRange()
         let nsText = string as NSString
         var prefix = ""
@@ -80,7 +80,7 @@ extension NativeTextView {
         if afterLocation < nsText.length, nsText.character(at: afterLocation) != 0x0A {
             suffix = "\n"
         }
-        insertText(prefix + embed + suffix, replacementRange: sel)
+        insertText(prefix + markdown + suffix, replacementRange: sel)
     }
 
     /// Reads the textual content of a pasted markdown/text file URL — the

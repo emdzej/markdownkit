@@ -194,7 +194,7 @@ extension MarkdownStyler {
         return PlatformFont.md(descriptor: baseDescriptor, traits: traits, size: pointSize) ?? current
     }
 
-    /// Walk the inline AST into marker-stripped runs; LaTeX as attachments, links/embeds emitted raw.
+    /// Walk the inline AST into marker-stripped runs; LaTeX as attachments, links/images emitted raw.
     private static func appendInlineCell(
         _ nodes: [InlineNode],
         in ns: NSString,
@@ -248,9 +248,7 @@ extension MarkdownStyler {
                     appendPlain(range, font)   // renderer unavailable → keep raw `$…$`
                 }
             case .link(let range, _, _, _, _),
-                 .image(let range, _, _, _),
-                 .wikiLink(let range, _, _, _),
-                 .imageEmbed(let range, _, _):
+                 .image(let range, _, _, _):
                 appendPlain(range, font)
             }
         }

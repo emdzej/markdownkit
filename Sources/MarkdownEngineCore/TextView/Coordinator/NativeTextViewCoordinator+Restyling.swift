@@ -14,16 +14,14 @@
 import AppKit
 
 extension NativeTextViewCoordinator {
-    /// Atomically rebuilds contents + base attrs + Markdown styling from storage-form `text`.
+    /// Atomically rebuilds contents + base attrs + Markdown styling from `text`.
     func rebuildTextStorageAndStyle(
         _ textView: NSTextView,
         from text: String,
         invalidateLayout: Bool = false
     ) {
-        // Storage is raw Markdown; only wiki links transform on display.
-        let displayState = WikiLinkService.makeDisplayState(from: text)
-        let displayText = displayState.display
-        wikiLinkMetadata = displayState.metadata
+        // Storage is raw Markdown, shown as-is.
+        let displayText = text
 
         if textView.string != displayText {
             textView.string = displayText
@@ -115,9 +113,6 @@ extension NativeTextViewCoordinator {
             paragraphStyle: paragraphStyle,
             caretLocation: textView.isEditable ? textView.selectedRange().location : -1,
             activeTokenIndices: activeTokenIndices,
-            wikiLinkIDProvider: { [weak self] range in
-                self?.wikiLinkID(for: range)
-            },
             precomputedTokens: tokens,
             configuration: configuration
         )
@@ -138,13 +133,10 @@ extension NativeTextViewCoordinator {
         var codeTokens: [MarkdownToken] = []
         var latexTokens: [MarkdownToken] = []
         var blockLatexTokens: [MarkdownToken] = []
-        var wikiLinkTokens: [MarkdownToken] = []
-        var imageEmbedTokens: [MarkdownToken] = []
 
         codeTokens.reserveCapacity(tokens.count / 2)
         latexTokens.reserveCapacity(tokens.count / 4)
         blockLatexTokens.reserveCapacity(tokens.count / 4)
-        wikiLinkTokens.reserveCapacity(tokens.count / 4)
 
         for token in tokens {
             switch token.kind {
@@ -154,10 +146,6 @@ extension NativeTextViewCoordinator {
                 latexTokens.append(token)
             case .blockLatex:
                 blockLatexTokens.append(token)
-            case .wikiLink:
-                wikiLinkTokens.append(token)
-            case .imageEmbed:
-                imageEmbedTokens.append(token)
             default:
                 break
             }
@@ -167,9 +155,7 @@ extension NativeTextViewCoordinator {
             tokens: tokens,
             codeTokens: codeTokens,
             latexTokens: latexTokens,
-            blockLatexTokens: blockLatexTokens,
-            wikiLinkTokens: wikiLinkTokens,
-            imageEmbedTokens: imageEmbedTokens
+            blockLatexTokens: blockLatexTokens
         )
         cachedParsedText = text
         cachedParsedDocument = parsed
@@ -240,64 +226,6 @@ extension NativeTextViewCoordinator {
         restyleTextView(textView, paragraphCandidates: paragraphs, tokens: tokens)
     }
 
-    func applyInlineReplacement(_ request: InlineReplacementRequest, to textView: NSTextView) {
-        lastAppliedInlineReplacementID = request.id
-
-        let currentText = textView.string as NSString
-        let range = request.selection.displayRange
-        guard range.location != NSNotFound,
-              range.location + range.length <= currentText.length else {
-            return
-        }
-
-        let replacementDisplay: String
-        let linkID: String?
-        if request.isImageEmbedMode {
-            replacementDisplay = request.storageFragment
-            linkID = nil
-        } else {
-            let replacementInfo = WikiLinkService.displayFragmentAndID(from: request.storageFragment)
-            replacementDisplay = replacementInfo.display
-            linkID = replacementInfo.id
-        }
-
-        let undoActionName = request.isImageEmbedMode ? "Insert Image Embed" : "Insert Link"
-        textView.breakUndoCoalescing()
-
-        isProgrammaticEdit = true
-        defer { isProgrammaticEdit = false }
-
-        guard textView.shouldChangeText(in: range, replacementString: replacementDisplay) else {
-            return
-        }
-
-        textView.textStorage?.replaceCharacters(in: range, with: replacementDisplay)
-
-        if let linkID, !linkID.isEmpty {
-            let contentLength = max(0, (replacementDisplay as NSString).length - 4)
-            if contentLength > 0 {
-                let contentRange = NSRange(location: range.location + 2, length: contentLength)
-                textView.textStorage?.addAttribute(.wikiLinkID, value: linkID, range: contentRange)
-            }
-        }
-
-        textView.didChangeText()
-        textView.undoManager?.setActionName(undoActionName)
-        textView.breakUndoCoalescing()
-
-        let caretRange = WikiLinkService.caretRangeAfterReplacing(
-            displayRange: range,
-            with: request.storageFragment
-        )
-        let documentLength = (textView.string as NSString).length
-        let clampedCaret = NSRange(location: min(max(caretRange.location, 0), documentLength), length: 0)
-
-        if let bottomTextView = textView as? NativeTextView {
-            bottomTextView.suppressAutoRevealOnce = true
-        }
-        textView.window?.makeFirstResponder(textView)
-        textView.setSelectedRange(clampedCaret)
-    }
 }
 
 #endif

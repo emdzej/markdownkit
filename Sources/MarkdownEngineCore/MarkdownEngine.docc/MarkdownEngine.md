@@ -1,16 +1,16 @@
 # ``MarkdownEngine``
 
-A TextKit 2-backed Markdown editor view for macOS, bridged to SwiftUI.
+A TextKit 2-backed Markdown editor view for macOS and iOS, bridged to SwiftUI.
 
 ## Overview
 
-MarkdownEngine provides a native AppKit Markdown editor with live styling,
-wiki-style ``[[Name]]`` linking, fenced code blocks with syntax highlighting,
-LaTeX rendering, embedded images, and GitHub-style task checkboxes.
+MarkdownEngine provides a native Markdown editor (AppKit and UIKit) with live
+styling, fenced code blocks with syntax highlighting, LaTeX rendering, images,
+and GitHub-style task checkboxes. Text is stored as plain CommonMark + GFM.
 
 The engine itself has **zero external dependencies**. Everything app-specific
 is injected through small service protocols, so embedders stay in control of
-where wiki-links resolve, where embedded images live, how code is highlighted,
+where images live, how code is highlighted,
 and how LaTeX is rendered.
 
 ### Quick Start
@@ -21,14 +21,10 @@ import MarkdownEngine
 
 struct EditorScreen: View {
     @State private var text: String = "# Hello, *world*"
-    @State private var isLinkActive: Bool = false
-    @State private var pendingReplacement: InlineReplacementRequest?
 
     var body: some View {
         NativeTextViewWrapper(
             text: $text,
-            isWikiLinkActive: $isLinkActive,
-            pendingInlineReplacement: $pendingReplacement,
             configuration: .default,
             fontName: "SF Pro",
             documentId: "doc-1"
@@ -56,7 +52,6 @@ configuration.theme = theme
 
 ```swift
 let services = MarkdownEditorServices(
-    wikiLinks: MyWikiLinkResolver(),
     images:    MyImageProvider(),
     syntaxHighlighter: MySyntaxHighlighter(),
     latex:     MyLatexRenderer()
@@ -79,8 +74,7 @@ configuration.services = services
 
 ### Service Protocols
 
-- ``WikiLinkResolver``
-- ``EmbeddedImageProvider``
+- ``ImageProvider``
 - ``SyntaxHighlighter``
 - ``LatexRenderer``
 
@@ -91,22 +85,13 @@ configuration.services = services
 
 ### Default No-Op Implementations
 
-- ``NoOpWikiLinkResolver``
-- ``NoOpEmbeddedImageProvider``
+- ``NoOpImageProvider``
 - ``PlainTextSyntaxHighlighter``
 - ``NoOpLatexRenderer``
 
-### Selection & Replacement
+### Selection
 
-- ``InlineSelectionState``
-- ``InlineSelectionKind``
-- ``WikiLinkSelection``
-- ``InlineReplacementRequest``
 - ``CodeBlockSelection``
-
-### Wiki-Link Roundtripping
-
-- ``WikiLinkService``
 
 ### Pasteboard Helpers
 

@@ -35,7 +35,7 @@ struct EditorScreen: View {
 let sample = """
 # Hello from iOS
 
-This is **bold**, *italic*, ~~struck~~, and `inline code`. A [link](https://example.com) and a [[Wiki Link]].
+This is **bold**, *italic*, ~~struck~~, and `inline code`. A [link](https://example.com).
 
 ## Lists
 

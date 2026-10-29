@@ -19,10 +19,10 @@
 </video>
 
 
-A native AppKit Markdown editor for macOS, built on TextKit 2 and bridged to
-SwiftUI. Live styling, wiki-link support, fenced code blocks with syntax
-highlighting, LaTeX rendering, embedded images, and GitHub-style task
-checkboxes.
+A native Markdown editor for macOS (AppKit) and iOS / iPadOS (UIKit), built on
+TextKit 2 and bridged to SwiftUI. Live styling, fenced code blocks with syntax
+highlighting, LaTeX rendering, images, and GitHub-style task checkboxes. The
+text on disk is plain CommonMark + GFM.
 
 ## Motivation
 
@@ -31,10 +31,7 @@ When we started building **[Nodes](https://apps.apple.com/de/app/nodes-by-the-we
 ## Features
 
 - **Live Markdown styling** — bold, italic, strikethrough, headings, lists, blockquotes, GFM tables, code, links, task checkboxes, horizontal rules 
-- **Wiki-style linking** with two-form storage / display roundtripping
-  (`[[Name|<id>]]` ↔ `[[Name]]`)
-- **Image embeds** — both `![[Name]]` (Obsidian-style, embedder supplies the                           
-  bytes) and standard Markdown `![alt](url)`
+- **Images** — standard Markdown `![alt](source)`, embedder supplies the bytes
 - **LaTeX** — both block (`$$ … $$`) and inline (`$…$`), embedder supplies
   the renderer
 - **Code blocks** with embedder-supplied syntax highlighting and overlayable
@@ -48,7 +45,7 @@ When we started building **[Nodes](https://apps.apple.com/de/app/nodes-by-the-we
 - **Comfortable bottom overscroll** so the caret never pins to the viewport
   edge while typing
 - **Drag-select autoscroll boost** for long documents
-- **Spelling & grammar** with code/LaTeX/wiki-link suppression
+- **Spelling & grammar** with code/LaTeX/link suppression
 
 ## Installation
 
@@ -92,38 +89,38 @@ struct EditorScreen: View {
 ```
 
 That's it. See [Customization](#customization) below for syntax
-highlighting, themes, wiki-link state, and more.
+highlighting, themes, and more.
 
 > **Displaying multiple editors?** Pass a stable, unique
-> `documentId: "your-doc-id"` so undo history and pending replacements
-> stay scoped to each editor instance.
+> `documentId: "your-doc-id"` so undo history stays scoped to each editor instance.
 
 ## Customization
 
 ### Service Protocols
 
-The engine talks to your app through four service protocols, each with
+The engine talks to your app through three service protocols, each with
 a no-op default so you only implement what you actually need:
 
 | Protocol | What you supply | Ready-made bridge / suggested library |
 |---|---|---|
-| `WikiLinkResolver` | Resolve a `[[Name]]` to a stable opaque id | (your data model) |
-| `EmbeddedImageProvider` | Look up an `NSImage` for `![[Name]]` | (your asset store) |
+| `ImageProvider` | Load the image for `![alt](source)` | (your asset store) |
 | `SyntaxHighlighter` | Highlight code blocks for a given language | **`HighlighterSwiftBridge`** ([recommended](#code-blocks)) — built on [HighlighterSwift](https://github.com/smittytone/HighlighterSwift) |
 | `LatexRenderer` | Render a LaTeX string to an `NSImage` | **`SwiftMathBridge`** ([recommended](#latex-rendering)) — built on [SwiftMath](https://github.com/mgriebling/SwiftMath) |
 
 Implement what you need and pass it through `MarkdownEditorServices`:
 
 ```swift
-struct MyResolver: WikiLinkResolver {
-    func resolve(displayName: String, range: NSRange) -> WikiLinkResolution? {
-        myIndex[displayName].map { WikiLinkResolution(id: $0, exists: true) }
+struct VaultImages: ImageProvider {
+    let root: URL
+    func image(for request: ImageRequest) -> PlatformImage? {
+        PlatformImage(contentsOfFile: root.appending(path: request.source).path)
     }
+    func fingerprint() -> AnyHashable { root }
 }
 
 configuration.services = MarkdownEditorServices(
-    wikiLinks: MyResolver()
-    // images, syntaxHighlighter, latex omitted → no-op defaults
+    images: VaultImages(root: vaultURL)
+    // syntaxHighlighter, latex omitted → no-op defaults
 )
 ```
 
@@ -208,26 +205,6 @@ configuration.overscroll.percent = 0.4
 configuration.lists.helpersEnabled = false
 configuration.safeAreaInsets = SafeAreaInsets(top: 56)   // headroom under a translucent toolbar
 ```
-
-### Wiki-Links & Replacement State
-
-Two optional bindings on `NativeTextViewWrapper` let you observe
-wiki-link state and push inline replacements programmatically. Pass
-only what you need — each is independent and defaults to a no-op:
-
-```swift
-NativeTextViewWrapper(
-    text: $text,
-    isWikiLinkActive: $isWikiLinkActive,
-    pendingInlineReplacement: $pendingReplacement
-)
-```
-
-- `isWikiLinkActive` — the wrapper sets this to `true` while the caret
-  sits inside a `[[Name]]` link, so you can present a contextual UI.
-- `pendingInlineReplacement` — assign a non-nil value to push a
-  replacement (e.g. an autocomplete result); the engine consumes it
-  and clears the binding.
 
 ### Reading Column
 

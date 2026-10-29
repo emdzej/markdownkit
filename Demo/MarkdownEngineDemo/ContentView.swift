@@ -195,7 +195,7 @@ private var codeSection: String {
     ```json
     {
       "engine": "MarkdownEngine",
-      "features": ["latex", "code", "wiki-links"],
+      "features": ["latex", "code", "tables"],
       "version": 1.0
     }
     ```

@@ -62,16 +62,11 @@ extension NativeTextViewCoordinator {
         let safeSelRange = NSRange(location: safeLocation, length: 0)
         previousCaretLocation = safeSelRange.location
         if !wtActive {
-            let storageState = WikiLinkService.makeStorageState(
-                from: tv.string,
-                existingMetadata: self.wikiLinkMetadata,
-                textStorage: tv.textStorage
-            )
-            self.wikiLinkMetadata = storageState.metadata
-            if storageState.storage != self.lastSyncedText {
+            let current = tv.string
+            if current != self.lastSyncedText {
                 DispatchQueue.main.async {
-                    self.lastSyncedText = storageState.storage
-                    self.text = storageState.storage
+                    self.lastSyncedText = current
+                    self.text = current
                 }
             }
         }
@@ -124,7 +119,6 @@ extension NativeTextViewCoordinator {
             in: fullText,
             suppressed: !tv.isEditable
         )
-        filterImageEmbedActiveTokens(parsed: parsed, text: fullText, selectionLocation: safeSelRange.location)
         updateAutocorrectSettings(
             tv,
             caretLocation: safeSelRange.location,
@@ -137,8 +131,8 @@ extension NativeTextViewCoordinator {
         if codeBlockStructureChanged {
             effectiveParagraphCandidates = [NSRange(location: 0, length: fullText.length)]
         }
-        // Always restyle paragraphs containing latex/imageEmbed tokens to avoid stale raw text.
-        let latexParagraphs = (latexTokens + blockLatexTokens + parsed.imageEmbedTokens).map { fullText.paragraphRange(for: $0.range) }
+        // Always restyle paragraphs containing latex tokens to avoid stale raw text.
+        let latexParagraphs = (latexTokens + blockLatexTokens).map { fullText.paragraphRange(for: $0.range) }
         effectiveParagraphCandidates.append(contentsOf: latexParagraphs)
         effectiveParagraphCandidates.append(contentsOf: tokenRestyleParagraphs(
             in: fullText,
@@ -166,13 +160,10 @@ extension NativeTextViewCoordinator {
         if isWritingToolsActive { return }
         let selRange = tv.selectedRange()
         let currentEventType = NSApp.currentEvent?.type
-        // Mouse-/Wake-Fokus auf Link: kein Preview, erst Navigation. Gilt für alle Nicht-Key-Events.
+        // Mouse focus landing on a rendered link: navigate, do not reveal its source.
         if currentEventType != .keyDown,
            selRange.location < (tv.string as NSString).length,
            tv.textStorage?.attribute(.link, at: selRange.location, effectiveRange: nil) != nil {
-            isImageEmbedActive = false
-            isWikiLinkActive = false
-            onInlineSelectionChange?(nil)
             return
         }
         updateSelectionStates(tv)
@@ -187,7 +178,6 @@ extension NativeTextViewCoordinator {
 
         let prevActive = activeTokenIndices
         activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(selectionRange: selRange, tokens: tokens, in: nsText, suppressed: !tv.isEditable)
-        filterImageEmbedActiveTokens(parsed: parsed, text: nsText, selectionLocation: selRange.location)
         updateAutocorrectSettings(
             tv,
             caretLocation: selLoc,
@@ -207,8 +197,8 @@ extension NativeTextViewCoordinator {
             let prevPara = nsText.paragraphRange(for: NSRange(location: safePrev, length: 0))
             paragraphCandidates.append(prevPara)
         }
-        // Also restyle paragraphs containing latex/imageEmbed tokens to refresh rendering.
-        let latexParagraphs = (latexTokens + blockLatexTokens + parsed.imageEmbedTokens).map { nsText.paragraphRange(for: $0.range) }
+        // Also restyle paragraphs containing latex tokens to refresh rendering.
+        let latexParagraphs = (latexTokens + blockLatexTokens).map { nsText.paragraphRange(for: $0.range) }
         paragraphCandidates.append(contentsOf: latexParagraphs)
         paragraphCandidates.append(contentsOf: tokenRestyleParagraphs(
             in: nsText,
@@ -260,7 +250,7 @@ extension NativeTextViewCoordinator {
             restyleTextView(tv, paragraphCandidates: paragraphCandidates, tokens: tokens)
         }
 
-        // Auto-select content when clicking (mouse) into a rendered (previously inactive) latex or image embed
+        // Auto-select content when clicking (mouse) into a rendered (previously inactive) latex or image
         if selRange.length == 0,
            let eventType = currentEventType,
            eventType == .leftMouseUp || eventType == .leftMouseDown {
@@ -269,7 +259,7 @@ extension NativeTextViewCoordinator {
                 let token = tokens[idx]
                 guard token.kind == .inlineLatex
                     || token.kind == .blockLatex
-                    || token.kind == .imageEmbed else {
+                    || token.kind == .imageLink else {
                     continue
                 }
                 let selectRange = token.contentRange
@@ -278,61 +268,6 @@ extension NativeTextViewCoordinator {
                     break
                 }
             }
-        }
-
-        let nsString = tv.string as NSString
-        let selLocation = tv.selectedRange().location
-        let inlineContext = inlineTokenContext(
-            at: selLocation,
-            parsed: parsed,
-            codeTokens: codeTokens,
-            text: nsText
-        )
-        let isInsideImageEmbed = {
-            guard case .imageEmbed = inlineContext else { return false }
-            return true
-        }()
-        // Preview must only trigger inside the `![[…]]` content area
-        let isInsideImageEmbedContent: Bool = {
-            guard case .imageEmbed(let token) = inlineContext else { return false }
-            let start = token.range.location + 3
-            let end = NSMaxRange(token.range) - 2
-            return selLocation >= start && selLocation <= end
-        }()
-
-        let isTyping = currentEventType == .keyDown
-        let imageEmbedShowsInlinePreview = isInsideImageEmbedContent && isTyping
-        var inlineSelectionState: InlineSelectionState? = nil
-        if let inlineContext {
-            let openingMarkerLength = inlineContext.selectionKind == .imageEmbed ? 3 : 2
-            let displayRange = selectionDisplayRange(for: inlineContext.token, openingMarkerLength: openingMarkerLength)
-            let placeholder = nsString.substring(with: displayRange)
-            let storageRange = inlineContext.selectionKind == .wikiLink
-                ? storageRange(containingDisplayLocation: selLocation) ?? storageRange(forDisplayRange: displayRange)
-                : nil
-            let previewRect = tv.viewRect(forCharacterRange: displayRange, using: layoutBridge)
-                ?? tv.viewRect(forCharacterRange: tv.selectedRange(), using: layoutBridge)
-
-            let shouldShowInlinePreview =
-                inlineContext.selectionKind == .wikiLink
-                || (inlineContext.selectionKind == .imageEmbed && imageEmbedShowsInlinePreview)
-            if shouldShowInlinePreview, let previewRect {
-                let selection = WikiLinkSelection(
-                    displayRange: displayRange,
-                    storageRange: storageRange,
-                    placeholder: placeholder
-                )
-                inlineSelectionState = InlineSelectionState(kind: inlineContext.selectionKind, selection: selection)
-                DispatchQueue.main.async {
-                    self.onCaretRectChange?(previewRect)
-                }
-            }
-        }
-
-        DispatchQueue.main.async {
-            self.isWikiLinkActive = inlineSelectionState?.kind == .wikiLink
-            self.isImageEmbedActive = isInsideImageEmbed
-            self.onInlineSelectionChange?(inlineSelectionState)
         }
 
         self.previousActiveTokenIndices = self.activeTokenIndices
@@ -376,15 +311,6 @@ extension NativeTextViewCoordinator {
             return false
         }
 
-        if MarkdownInputHandler.handleImageEmbedAutoWrap(
-            textView: textView,
-            affectedCharRange: affectedCharRange,
-            replacementString: replacementString,
-            imageEmbedTokens: parsed.imageEmbedTokens
-        ) {
-            return false
-        }
-
         return MarkdownInputHandler.handleListInsertion(textView: textView, affectedCharRange: affectedCharRange, replacementString: replacementString)
     }
 
@@ -396,13 +322,11 @@ extension NativeTextViewCoordinator {
     }
 
     public func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
-        guard let target = WikiLinkService.resolveIdentifier(link: link, textView: textView, at: charIndex) else {
-            return false
-        }
-        // Direkt deaktivieren, bevor der Navigation-Callback läuft.
-        self.isWikiLinkActive = false
+        // Without a handler AppKit opens the URL itself (browser, mail, ...).
+        guard let onLinkClick else { return false }
+        let target = (link as? URL)?.absoluteString ?? (link as? String) ?? "\(link)"
         DispatchQueue.main.async {
-            self.onLinkClick?(target)
+            onLinkClick(target)
         }
         return true
     }

@@ -12,7 +12,7 @@
 //  Built incrementally behind the existing styler; not wired until complete
 //  and visually verified. Covered so far: heading/paragraph/blockquote blocks;
 //  inline emphasis (font composition), strikethrough, inline code, markdown
-//  links, wiki links. Still TODO: images, image embeds, inline LaTeX, escapes,
+//  links. Still TODO: images, inline LaTeX, escapes,
 //  autolinks, marker-shrinking, paragraph styles, code/table/latex blocks,
 //  bullets, task checkboxes, horizontal rules.
 //
@@ -31,7 +31,6 @@ enum MarkdownASTStyler {
         fontName: String,
         fontSize: CGFloat,
         caretLocation: Int = -1,
-        wikiLinkIDProvider: @escaping (NSRange) -> String? = { _ in nil },
         scopedRanges: [NSRange]? = nil,
         configuration: MarkdownEditorConfiguration = .default
     ) -> [StyledRange] {
@@ -65,7 +64,6 @@ enum MarkdownASTStyler {
             inlineMarkerFont: PlatformFont(name: fontName, size: hiddenSize) ?? .systemFont(ofSize: hiddenSize),
             caret: caretLocation,
             config: configuration,
-            wikiLinkID: wikiLinkIDProvider,
             scopedRanges: scopedRanges
         )
         let blocks = DocumentAST.parse(text, scopedRanges: scopedRanges)
@@ -244,7 +242,6 @@ enum MarkdownASTStyler {
         let inlineMarkerFont: PlatformFont
         let caret: Int
         let config: MarkdownEditorConfiguration
-        let wikiLinkID: (NSRange) -> String?
         let scopedRanges: [NSRange]?
 
         /// Active (syntax revealed) when the caret is inside the range or at its end (minus a newline).
@@ -448,10 +445,7 @@ enum MarkdownASTStyler {
             case .link(let range, let textRange, let url, let markers, let children):
                 styleLink(range: range, textRange: textRange, url: url, markers: markers, children: children, font: font, ctx: ctx, into: &attrs)
 
-            case .wikiLink(let range, let name, _, let markers):
-                styleWikiLink(range: range, name: name, markers: markers, ctx: ctx, into: &attrs)
-
-            case .image, .imageEmbed, .inlineLatex, .escape:
+            case .image, .inlineLatex, .escape:
                 break   // ported in later increments
             }
         }
@@ -480,27 +474,6 @@ enum MarkdownASTStyler {
         }
         for marker in markers { attrs.append((marker, [.foregroundColor: ctx.theme.mutedText])) }
         styleInlines(children, font: font, ctx: ctx, into: &attrs)
-    }
-
-    private static func styleWikiLink(
-        range: NSRange, name: NSRange, markers: [NSRange], ctx: Ctx, into attrs: inout [StyledRange]
-    ) {
-        attrs.append((range, [.spellingState: 0]))
-        let nodeName = ctx.ns.substring(with: name)
-        let linkID = ctx.wikiLinkID(range)
-        var contentAttrs: [NSAttributedString.Key: Any] = [:]
-        if let linkID { contentAttrs[.wikiLinkID] = linkID }
-        if !ctx.isActive(range) {
-            // Resolve by the stable UUID when present 
-            let exists = ctx.config.services.wikiLinks.resolve(displayName: linkID ?? nodeName, range: name)?.exists ?? false
-            if exists {
-                contentAttrs[.link] = linkID ?? nodeName
-            } else {
-                contentAttrs[.foregroundColor] = ctx.theme.disabledText
-            }
-        }
-        if !contentAttrs.isEmpty { attrs.append((name, contentAttrs)) }
-        for marker in markers { attrs.append((marker, [.foregroundColor: ctx.theme.mutedText])) }
     }
 
     // MARK: - Marker shrinking (hide syntax of inactive nodes)
@@ -546,13 +519,11 @@ enum MarkdownASTStyler {
                     }
                 }
                 shrinkInlineMarkers(children, ctx: ctx, forceReveal: active, into: &attrs)
-            case .wikiLink(let range, _, _, let markers):
-                if !(forceReveal || ctx.isActive(range)) { shrink(markers, ctx: ctx, into: &attrs) }
             case .image(let range, _, _, let markers):
                 if !(forceReveal || ctx.isActive(range)) { shrink(markers, ctx: ctx, into: &attrs) }
             case .escape(let range, _, let marker):
                 if !(forceReveal || ctx.isActive(range)) { shrink([marker], ctx: ctx, into: &attrs) }
-            case .text, .code, .imageEmbed, .inlineLatex:
+            case .text, .code, .inlineLatex:
                 break   // own marker handling / not shrunk
             }
         }

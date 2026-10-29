@@ -65,9 +65,8 @@ Screen recordings welcome.
 Non-negotiable for the core `MarkdownEngine` target:
 
 - **Don't add external dependencies to the core `MarkdownEngine`
-  target.** App-specific behaviors plug in through the four service
-  protocols (`WikiLinkResolver`, `EmbeddedImageProvider`,
-  `SyntaxHighlighter`, `LatexRenderer`) instead. The two existing
+  target.** App-specific behaviors plug in through the three service
+  protocols (`ImageProvider`, `SyntaxHighlighter`, `LatexRenderer`) instead. The two existing
   bridge products (`MarkdownEngineCodeBlocks` → HighlighterSwift,
   `MarkdownEngineLatex` → SwiftMath) are the deliberate exception so
   consumers can opt in. New bridges or new core deps need an issue

@@ -43,23 +43,6 @@ enum MarkdownInputHandler {
                                    replacementString: replacementString, tokens: resolvedTokens)
     }
 
-    /// Ensures image embeds (![[...]]) stay on their own line by automatically inserting newlines.
-    static func handleImageEmbedAutoWrap(
-        textView: PlatformTextView,
-        affectedCharRange: NSRange,
-        replacementString: String?,
-        imageEmbedTokens: [MarkdownToken]? = nil
-    ) -> Bool {
-        let resolvedTokens: [MarkdownToken]
-        if let imageEmbedTokens {
-            resolvedTokens = imageEmbedTokens
-        } else {
-            resolvedTokens = MarkdownTokenizer.parseTokensViaAST(in: textView.string).filter { $0.kind == .imageEmbed }
-        }
-        return handleBlockAutoWrap(textView: textView, affectedCharRange: affectedCharRange,
-                                   replacementString: replacementString, tokens: resolvedTokens)
-    }
-
     /// Shared auto-wrap logic: ensures a block-level token stays on its own line.
     private static func handleBlockAutoWrap(
         textView: PlatformTextView,

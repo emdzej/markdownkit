@@ -54,13 +54,7 @@ extension NativeTextViewCoordinator {
         wtUndoneDuringSession = false
         wtPostUndoSnapshot = nil
 
-        let storageState = WikiLinkService.makeStorageState(
-            from: sourceText,
-            existingMetadata: wikiLinkMetadata,
-            textStorage: textView.textStorage
-        )
-        wikiLinkMetadata = storageState.metadata
-        let storage = storageState.storage
+        let storage = sourceText
 
         // Binding is already equal to `storage` after undo so SwiftUI won't re-render — rebuild the textView directly.
         if undoDuringSession {

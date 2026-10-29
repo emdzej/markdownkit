@@ -16,7 +16,7 @@ import SwiftUI
 ///
 /// The coordinator is created automatically by SwiftUI; embedders never
 /// construct one directly. Behaviors that don't fit in the main file live
-/// in extensions (Autocorrect, CodeBlocks, Find, InlineSelection,
+/// in extensions (Autocorrect, CodeBlocks, Find,
 /// Notifications, Restyling, TextDelegate, WritingTools).
 public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, ProgrammaticEditTracking {
     var documentId: String?
@@ -24,7 +24,6 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     /// switch-away, restored on switch-back.
     var scrollOffsets: [String: CGFloat] = [:]
     @Binding var text: String
-    @Binding var isWikiLinkActive: Bool
     var fontName: String
     var fontSize: CGFloat
     var configuration: MarkdownEditorConfiguration = .default {
@@ -33,14 +32,13 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
             subscribeToAppearanceNotification()
         }
     }
-    /// Last `EmbeddedImageProvider.fingerprint()` value we've reflected in
+    /// Last `ImageProvider.fingerprint()` value we've reflected in
     /// the textView's attributes. We cache it here because embedders that
     /// MUTATE the same provider over time (async URL fetches, etc.) would
     /// otherwise fool the wrapper's "did the embedder hand us a new
     /// fingerprint" check — re-reading the same object twice always
     /// returns the current value, regardless of when state changed.
     var lastImageFingerprint: AnyHashable?
-    var lastWikiFingerprint: AnyHashable?
     private var busObservers: [NSObjectProtocol] = []
     private var registeredAppearanceObserverName: Notification.Name?
     weak var textView: NSTextView?
@@ -50,8 +48,6 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     var layoutBridge: LayoutBridge?
     var layoutDelegate: MarkdownLayoutManagerDelegate?
     var onLinkClick: ((String) -> Void)?
-    var onCaretRectChange: ((CGRect) -> Void)?
-    var onInlineSelectionChange: ((InlineSelectionState?) -> Void)?
     var onCodeBlockSelectionChange: (([CodeBlockSelection]) -> Void)?
     var didInitialFormatting: Bool = false
     /// One-shot guard so `updateCodeBlockSelection` only forces a full-document layout once per document.
@@ -68,10 +64,8 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     var wtUndoObserverTokens: [NSObjectProtocol] = []
     var wtUndoneDuringSession: Bool = false
     var wtPostUndoSnapshot: String?
-    var lastAppliedInlineReplacementID: UUID?
     var activeTokenIndices: Set<Int> = []
     var previousActiveTokenIndices: Set<Int> = []
-    var wikiLinkMetadata: [WikiLinkService.RangeKey: WikiLinkService.LinkMetadata] = [:]
     var previousBacktickCount: Int = 0
 
     var pendingEditedRange: NSRange? = nil
@@ -125,49 +119,16 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
         let codeTokens: [MarkdownToken]
         let latexTokens: [MarkdownToken]
         let blockLatexTokens: [MarkdownToken]
-        let wikiLinkTokens: [MarkdownToken]
-        let imageEmbedTokens: [MarkdownToken]
     }
-
-    enum InlineTokenContext {
-        case wikiLink(token: MarkdownToken)
-        case imageEmbed(token: MarkdownToken)
-
-        var token: MarkdownToken {
-            switch self {
-            case .wikiLink(let token), .imageEmbed(let token):
-                return token
-            }
-        }
-
-        var selectionKind: InlineSelectionKind {
-            switch self {
-            case .wikiLink:
-                return .wikiLink
-            case .imageEmbed:
-                return .imageEmbed
-            }
-        }
-    }
-
-    var isImageEmbedActive: Bool = false
-
-    // Inline selection geometry, image-embed activation, and inline-token
-    // detection live in `NativeTextViewCoordinator+InlineSelection.swift`.
 
     init(text: Binding<String>,
          fontName: String,
          fontSize: CGFloat,
-         isWikiLinkActive: Binding<Bool>,
-         onLinkClick: ((String) -> Void)?,
-         onInlineSelectionChange: ((InlineSelectionState?) -> Void)?) {
+         onLinkClick: ((String) -> Void)?) {
         _text = text
         self.fontName = fontName
         self.fontSize = fontSize
-        _isWikiLinkActive = isWikiLinkActive
         self.onLinkClick = onLinkClick
-        self.onCaretRectChange = nil
-        self.onInlineSelectionChange = onInlineSelectionChange
         self.lastSyncedText = text.wrappedValue
         super.init()
         // Init + didSet share this helper so the observer tracks whichever service is current.
@@ -232,28 +193,9 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     // Find-in-document highlight handlers live in
     // `NativeTextViewCoordinator+Find.swift`.
 
-    func wikiLinkID(for range: NSRange) -> String? {
-        wikiLinkMetadata[WikiLinkService.RangeKey(range)]?.id
-    }
-
-    func storageRange(forDisplayRange range: NSRange) -> NSRange? {
-        wikiLinkMetadata[WikiLinkService.RangeKey(range)]?.storageRange
-    }
-
-    func storageRange(containingDisplayLocation location: Int) -> NSRange? {
-        for (key, value) in wikiLinkMetadata {
-            let displayRange = NSRange(location: key.location, length: key.length)
-            if NSLocationInRange(location, displayRange) {
-                return value.storageRange
-            }
-        }
-        return nil
-    }
-
     // Methods are split across the following extensions:
     //   - +TextDelegate    — NSTextViewDelegate hot path
     //   - +Restyling       — restyle pipeline + parsedDocument cache
-    //   - +InlineSelection — inline-token detection + image-embed activation
     //   - +CodeBlocks      — copy-button overlay
     //   - +Find            — find-in-document highlights
     //   - +Notifications   — bus + appearance bridge

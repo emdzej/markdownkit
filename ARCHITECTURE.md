@@ -6,10 +6,10 @@
 Sources/
 ├── MarkdownEngine/                          # core target — zero deps
 │   ├── Configuration/                       # MarkdownEditorConfiguration + MarkdownEditorTheme
-│   ├── Services/                            # 4 protocols, no-op defaults, WikiLinkService
+│   ├── Services/                            # 3 protocols, no-op defaults
 │   ├── Parser/                              # two-phase AST: BlockParser → InlineParser → DocumentAST (+ token projection)
 │   ├── Styling/                             # MarkdownASTStyler (AST walk) + MarkdownStyler facade for NSImage passes
-│   ├── Renderer/                            # LayoutBridge, MarkdownTextLayoutFragment, EmbeddedImageCache
+│   ├── Renderer/                            # LayoutBridge, MarkdownTextLayoutFragment
 │   ├── Input/                               # MarkdownInputHandler + MarkdownListHandler
 │   ├── TextView/
 │   │   ├── NativeTextViewWrapper.swift      # SwiftUI entry point (NSViewRepresentable)
@@ -41,7 +41,7 @@ regexes are gone, replaced by hand-written scanners and a real syntax tree.
    per-keystroke callers share one line-scan.
 2. **`InlineParser`** turns a single inline-bearing block's text into an inline
    AST (`[InlineNode]`) with correct CommonMark precedence: code spans →
-   escapes → link family (`![[…]]`, `[[…]]`, `![…](…)`, `[…](…)`, `~~…~~`,
+   escapes → link family (`![…](…)`, `[…](…)`, `~~…~~`,
    `$…$`) → emphasis (`*`/`_` delimiter runs) → `buildTree`. Each pass claims
    spans only in regions not already claimed, so there are never partial
    overlaps and the tree is a clean containment tree.
@@ -73,22 +73,14 @@ re-parses one block, not the whole document (≈ O(edit)).
 
 ## [`Services/`](Sources/MarkdownEngine/Services): how does the engine talk to your app?
 
-`MarkdownEditorServices.swift` declares the four service protocols. Each is
-called synchronously when its construct is styled or rendered: `WikiLinkResolver`
-while styling wiki-links, `EmbeddedImageProvider` from the image-embed render
-pass, `SyntaxHighlighter` from code styling, `LatexRenderer` from the LaTeX
+`MarkdownEditorServices.swift` declares the three service protocols. Each is
+called synchronously when its construct is styled or rendered: `ImageProvider`
+from the image render pass, `SyntaxHighlighter` from code styling, `LatexRenderer` from the LaTeX
 render passes.
-
-`WikiLinkService.swift` handles the dual-form storage / display transform —
-storage is `[[Name|<id>]]`, display is `[[Name]]`. The coordinator runs it both
-ways every time `rebuildTextStorageAndStyle()` fires.
 
 **Invariant:** Service callbacks are synchronous. If an embedder's
 implementation is slow, it caches (both bundled bridges do); the engine never
 async-renders.
-
-**Invariant:** Wiki-link storage and display are different strings. Display IDs
-never leak into the binding.
 
 ## [`Styling/`](Sources/MarkdownEngine/Styling): how does the AST become attributes?
 
@@ -118,13 +110,13 @@ selection / copy / find / undo bug downstream traces back to violating this.
 ## [`Renderer/`](Sources/MarkdownEngine/Renderer): TextKit 2 layout
 
 Thin wrappers around `NSTextLayoutManager` (`LayoutBridge.swift`), a custom
-`MarkdownTextLayoutFragment` for precise positioning, and `EmbeddedImageCache`
-keyed by an embedder-supplied fingerprint so images and LaTeX results
-invalidate when the embedder says so.
+`MarkdownTextLayoutFragment` for precise positioning. Images and LaTeX results are cached by the
+embedder-supplied bridges, keyed by a fingerprint so they invalidate when
+the embedder says so.
 
 ## [`Input/`](Sources/MarkdownEngine/Input): typing-time helpers
 
-`MarkdownInputHandler.swift` handles auto-wrap for `$…$` / `$$…$$` / `![[…]]`.
+`MarkdownInputHandler.swift` handles auto-wrap for `$…$` / `$$…$$`.
 `MarkdownListHandler.swift` handles list continuation, indent / outdent, and
 task-checkbox toggling on Enter / Tab / Backspace. Both run synchronously inside
 the text-view delegate.

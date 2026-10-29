@@ -7,10 +7,6 @@
 //  scoping of the AppKit coordinator (`+TextDelegate`, `+Restyling`):
 //  re-tokenize the document, recompute which tokens the caret activates,
 //  and restyle only the paragraphs whose presentation can have changed.
-//
-//  Wiki-links are stored exactly as displayed here (no `[[Name|id]]`
-//  storage transform).
-//
 
 import SwiftUI
 import UIKit
@@ -126,7 +122,6 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
             paragraphStyle: paragraphStyle,
             caretLocation: tv.isEditable ? tv.selectedRange.location : -1,
             activeTokenIndices: activeTokenIndices,
-            wikiLinkIDProvider: { _ in nil },
             precomputedTokens: tokens,
             configuration: configuration
         )
@@ -162,7 +157,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
 
     /// Paragraphs that always need restyling because they render overlays.
     private func overlayParagraphs(_ tokens: [MarkdownToken], in ns: NSString) -> [NSRange] {
-        tokens.filter { [.inlineLatex, .blockLatex, .imageEmbed, .table].contains($0.kind) }
+        tokens.filter { [.inlineLatex, .blockLatex, .imageLink, .table].contains($0.kind) }
             .map { ns.paragraphRange(for: $0.range) }
     }
 
@@ -181,10 +176,6 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         if MarkdownInputHandler.handleBlockLatexAutoWrap(
             textView: tv, affectedCharRange: range, replacementString: replacementText,
             blockLatexTokens: tokens.filter { $0.kind == .blockLatex }
-        ) { textChanged(tv); return false }
-        if MarkdownInputHandler.handleImageEmbedAutoWrap(
-            textView: tv, affectedCharRange: range, replacementString: replacementText,
-            imageEmbedTokens: tokens.filter { $0.kind == .imageEmbed }
         ) { textChanged(tv); return false }
         if !MarkdownInputHandler.handleListInsertion(textView: tv, affectedCharRange: range, replacementString: replacementText) {
             textChanged(tv)
@@ -281,8 +272,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         defaultAction: UIAction
     ) -> UIAction? {
         guard case .link(let url) = textItem.content, let onLinkClick else { return defaultAction }
-        let target = url.scheme == nil ? url.absoluteString.removingPercentEncoding ?? url.absoluteString : url.absoluteString
-        return UIAction { _ in onLinkClick(target) }
+        return UIAction { _ in onLinkClick(url.absoluteString) }
     }
 }
 #endif

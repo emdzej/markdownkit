@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- iOS / iPadOS support: the parser, styler, and renderer build for UIKit via
+  platform aliases (`PlatformFont`, `PlatformColor`, ...), and
+  `NativeTextViewWrapper` has a UIKit implementation (`TextView/UIKit/`).
+  Demo app in `Demo/iOS` (generate with `xcodegen`).
 - Scroll-away header: `NativeTextViewWrapper` gains `header: AnyView?`,
   `headerCollapsedHeight: CGFloat`, and `headerExpanded: Bool`. The engine
   hosts the supplied SwiftUI view above the document body, scrolling with
@@ -16,7 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refreshes on every SwiftUI update and stays fully interactive. Composes
   with `readingWidth`. See the README's *Scrolling Header* section.
 
+### Removed
+- Wiki-links (`[[Name]]`, `[[Name|id]]`) and wiki embeds (`![[Name]]`) are no
+  longer parsed; they render as plain text. Removed with them:
+  `WikiLinkResolver`, `WikiLinkService`, `InlineSelectionState`,
+  `InlineReplacementRequest`, and the wrapper parameters `isWikiLinkActive`,
+  `pendingInlineReplacement`, `onCaretRectChange`, `onInlineSelectionChange`.
+
 ### Changed
+- `EmbeddedImageProvider` / `EmbeddedImageRequest(name:)` are now
+  `ImageProvider` / `ImageRequest(source:)`; `configuration.imageEmbed` is
+  `configuration.images` (`ImageStyle`).
+- `onLinkClick` receives the link destination for every markdown link; when
+  it is nil, AppKit opens the URL itself.
 - The scroll view's `documentView` is now always an engine-internal
   container view (hosting the text view, the optional scroll-away header,
   and the reading column's breakout overlays) rather than sometimes the

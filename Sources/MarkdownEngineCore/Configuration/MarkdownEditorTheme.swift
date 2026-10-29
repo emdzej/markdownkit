@@ -38,7 +38,7 @@ public struct MarkdownEditorTheme: Sendable {
     /// Defaults to `secondaryLabelColor` so it tracks the system style.
     public var mutedText: PlatformColor
     /// Foreground color for content the engine wants to deemphasize further
-    /// than `mutedText` — for example, broken wiki-links.
+    /// than `mutedText` — for example, unresolved references.
     public var disabledText: PlatformColor
     /// Foreground color for heading marker glyphs (`#`, `##`, …).
     public var headingMarker: PlatformColor

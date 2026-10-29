@@ -20,7 +20,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     /// Stable per-document id; switching it reloads contents and resets the caret.
     public var documentId: String
     public var isEditable: Bool
-    /// Called with the target of a tapped link (URL string or wiki-link name).
+    /// Called with the target of a tapped link (the markdown link destination).
     public var onLinkClick: ((String) -> Void)?
 
     public init(

@@ -6,8 +6,8 @@
 //
 //  Protocols and default implementations for engine-side dependencies.
 //
-//  The Markdown editor engine resolves wiki-links, syntax highlighting,
-//  LaTeX rendering, and embedded image lookup through these protocols.
+//  The Markdown editor engine resolves images, syntax highlighting,
+//  and LaTeX rendering through these protocols.
 //  Embedders supply the concrete implementations; the engine never
 //  reaches into the host app for any of these concerns.
 //
@@ -19,64 +19,17 @@ import UIKit
 #endif
 import Foundation
 
-// MARK: - Wiki Links
+// MARK: - Images
 
-/// Resolves a wiki-link's display name to a stable storage identifier.
+/// Loads the image for a markdown image `![alt](source)`.
 ///
-/// The engine stores wiki-links as `[[Name|<id>]]` and displays them as
-/// `[[Name]]`. The resolver maps a display name (and the range it occupies
-/// in the document) to whatever stable identifier the embedder uses for
-/// linked content. The identifier is opaque to the engine.
-public protocol WikiLinkResolver: Sendable {
-    /// Resolve a wiki-link by its visible name.
-    ///
-    /// - Parameters:
-    ///   - displayName: The text inside `[[ ]]` as the user sees it.
-    ///   - range: The character range the link occupies in the document.
-    /// - Returns: A resolution if the link points at known content; `nil` otherwise.
-    func resolve(displayName: String, range: NSRange) -> WikiLinkResolution?
-
-    /// Coarse fingerprint of the resolver's known targets (typically IDs + names).
-    /// A different value triggers a wiki-link restyle, so a rename refreshes link
-    /// clickability/display without waiting for the next keystroke.
-    func fingerprint() -> AnyHashable
-}
-
-public extension WikiLinkResolver {
-    func fingerprint() -> AnyHashable { 0 }
-}
-
-/// The result of resolving a wiki-link.
-public struct WikiLinkResolution: Sendable, Equatable {
-    /// Stable identifier persisted in the storage form `[[Name|<id>]]`.
-    public let id: String
-    /// Whether the linked target currently exists/is reachable.
-    public let exists: Bool
-
-    public init(id: String, exists: Bool) {
-        self.id = id
-        self.exists = exists
-    }
-}
-
-/// Default resolver that never resolves anything. Useful when an embedder
-/// doesn't ship wiki-link support.
-public struct NoOpWikiLinkResolver: WikiLinkResolver {
-    public init() {}
-    public func resolve(displayName: String, range: NSRange) -> WikiLinkResolution? { nil }
-}
-
-// MARK: - Embedded Images
-
-/// Loads an `PlatformImage` for an `![[...]]` embed reference.
-///
-/// The engine parses `![[name|optional-id|optional-width]]` into a
-/// reference and asks the provider for an image. The provider decides
+/// The engine hands the provider the raw `source` exactly as written (a
+/// relative path, file URL, or remote URL). The provider decides
 /// where the image actually lives (filesystem, remote, asset catalog).
-public protocol EmbeddedImageProvider: Sendable {
+public protocol ImageProvider: Sendable {
     /// Returns an image for the given reference, or `nil` if no image
     /// is available.
-    func image(for reference: EmbeddedImageRequest) -> PlatformImage?
+    func image(for request: ImageRequest) -> PlatformImage?
 
     /// A coarse fingerprint of the provider's current state. Returning
     /// a different value invalidates the engine's image cache. Embedders
@@ -84,26 +37,20 @@ public protocol EmbeddedImageProvider: Sendable {
     func fingerprint() -> AnyHashable
 }
 
-/// What the engine asks an `EmbeddedImageProvider` for.
-public struct EmbeddedImageRequest: Sendable, Equatable {
-    /// Display name of the embed (the part before any `|`).
-    public let name: String
-    /// Optional explicit identifier supplied as `![[name|id]]`.
-    public let id: String?
-    /// Optional explicit width supplied as `![[name|...|width]]`.
-    public let requestedWidth: CGFloat?
+/// What the engine asks an `ImageProvider` for.
+public struct ImageRequest: Sendable, Equatable {
+    /// The `source` of `![alt](source)`, verbatim.
+    public let source: String
 
-    public init(name: String, id: String? = nil, requestedWidth: CGFloat? = nil) {
-        self.name = name
-        self.id = id
-        self.requestedWidth = requestedWidth
+    public init(source: String) {
+        self.source = source
     }
 }
 
 /// Default provider that never returns images.
-public struct NoOpEmbeddedImageProvider: EmbeddedImageProvider {
+public struct NoOpImageProvider: ImageProvider {
     public init() {}
-    public func image(for reference: EmbeddedImageRequest) -> PlatformImage? { nil }
+    public func image(for request: ImageRequest) -> PlatformImage? { nil }
     public func fingerprint() -> AnyHashable { 0 }
 }
 
@@ -239,20 +186,17 @@ public struct MarkdownEditorBus: Sendable {
 /// dependencies exclusively from this container; embedders inject the
 /// implementations they want.
 public struct MarkdownEditorServices: Sendable {
-    public var wikiLinks: any WikiLinkResolver
-    public var images: any EmbeddedImageProvider
+    public var images: any ImageProvider
     public var syntaxHighlighter: any SyntaxHighlighter
     public var latex: any LatexRenderer
     public var bus: MarkdownEditorBus
 
     public init(
-        wikiLinks: any WikiLinkResolver = NoOpWikiLinkResolver(),
-        images: any EmbeddedImageProvider = NoOpEmbeddedImageProvider(),
+        images: any ImageProvider = NoOpImageProvider(),
         syntaxHighlighter: any SyntaxHighlighter = PlainTextSyntaxHighlighter(),
         latex: any LatexRenderer = NoOpLatexRenderer(),
         bus: MarkdownEditorBus = .default
     ) {
-        self.wikiLinks = wikiLinks
         self.images = images
         self.syntaxHighlighter = syntaxHighlighter
         self.latex = latex

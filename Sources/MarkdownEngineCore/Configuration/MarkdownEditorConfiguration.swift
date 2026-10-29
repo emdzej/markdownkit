@@ -37,7 +37,7 @@ public struct MarkdownEditorConfiguration: Sendable {
     public var inlineCode: InlineCodeStyle
     public var lists: ListStyle
     public var headings: HeadingStyle
-    public var imageEmbed: ImageEmbedStyle
+    public var images: ImageStyle
     public var blockLatex: BlockLatexStyle
     public var inlineLatex: InlineLatexStyle
     public var checkbox: CheckboxStyle
@@ -60,7 +60,7 @@ public struct MarkdownEditorConfiguration: Sendable {
         inlineCode: InlineCodeStyle = .default,
         lists: ListStyle = .default,
         headings: HeadingStyle = .default,
-        imageEmbed: ImageEmbedStyle = .default,
+        images: ImageStyle = .default,
         blockLatex: BlockLatexStyle = .default,
         inlineLatex: InlineLatexStyle = .default,
         checkbox: CheckboxStyle = .default,
@@ -81,7 +81,7 @@ public struct MarkdownEditorConfiguration: Sendable {
         self.inlineCode = inlineCode
         self.lists = lists
         self.headings = headings
-        self.imageEmbed = imageEmbed
+        self.images = images
         self.blockLatex = blockLatex
         self.inlineLatex = inlineLatex
         self.checkbox = checkbox
@@ -305,11 +305,11 @@ public struct HeadingStyle: Sendable {
     public static let `default` = HeadingStyle()
 }
 
-// MARK: - Image embeds (![[...]])
+// MARK: - Images
 
-/// Sizing and spacing rules for `![[Name]]` image embeds.
-public struct ImageEmbedStyle: Sendable {
-    /// Minimum allowed display width (points) for an embedded image.
+/// Sizing and spacing rules for block images (`![alt](source)` on its own line).
+public struct ImageStyle: Sendable {
+    /// Minimum allowed display width (points) for a block image.
     public var minimumWidth: CGFloat
     /// Fallback maximum width if no usable text container width is available.
     public var fallbackMaxWidth: CGFloat
@@ -334,7 +334,7 @@ public struct ImageEmbedStyle: Sendable {
         self.imageGap = imageGap
     }
 
-    public static let `default` = ImageEmbedStyle()
+    public static let `default` = ImageStyle()
 }
 
 // MARK: - LaTeX
