@@ -45,10 +45,19 @@ extension MarkdownUITextView: UITextDropDelegate {
     func insertDroppedFiles(_ files: [DroppedFile], at location: Int) async {
         guard let handler = onDropFiles,
               let markdown = await handler(files), !markdown.isEmpty else { return }
-        let insertAt = min(max(location, 0), (string as NSString).length)
-        let inserted = NSRange(location: insertAt, length: (markdown as NSString).length)
-        mdReplace(NSRange(location: insertAt, length: 0), with: markdown)
-        undoManager?.setActionName(files.count == 1 ? "Insert File" : "Insert Files")
+        insertMarkdown(markdown, replacing: NSRange(location: location, length: 0),
+                       actionName: files.count == 1 ? "Insert File" : "Insert Files")
+    }
+
+    /// Replaces `range` (clamped to the document) with `markdown` as one
+    /// undoable edit, leaving the caret after it.
+    func insertMarkdown(_ markdown: String, replacing range: NSRange, actionName: String) {
+        let length = (string as NSString).length
+        let start = min(max(range.location, 0), length)
+        let target = NSRange(location: start, length: min(range.length, length - start))
+        let inserted = NSRange(location: start, length: (markdown as NSString).length)
+        mdReplace(target, with: markdown)
+        undoManager?.setActionName(actionName)
         selectedRange = NSRange(location: NSMaxRange(inserted), length: 0)
         markdownCoordinator?.programmaticEditDidChange(in: self, range: inserted)
     }

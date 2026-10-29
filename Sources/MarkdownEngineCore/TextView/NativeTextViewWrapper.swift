@@ -56,6 +56,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     /// Fires when the user clicks a link, with its destination. When nil,
     /// AppKit opens the URL itself.
     public var onLinkClick: ((String) -> Void)?
+    /// Addresses this editor from outside (insert text, focus).
+    public var controller: MarkdownEditorController?
     /// Fires when the set of visible code blocks changes, so embedders can
     /// overlay copy buttons (see ``CodeBlockButton``).
     public var onCodeBlockSelectionChange: (([CodeBlockSelection]) -> Void)?
@@ -94,6 +96,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         fontSize: CGFloat = 16,
         documentId: String = "default",
         isEditable: Bool = true,
+        controller: MarkdownEditorController? = nil,
         onPasteImage: ((NSPasteboard) -> String?)? = nil,
         onDropFiles: FileDropHandler? = nil,
         onLinkClick: ((String) -> Void)? = nil,
@@ -111,6 +114,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         self.fontSize = fontSize
         self.documentId = documentId
         self.isEditable = isEditable
+        self.controller = controller
         self.onPasteImage = onPasteImage
         self.onDropFiles = onDropFiles
         self.onLinkClick = onLinkClick
@@ -228,6 +232,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         scrollView.reflectScrolledClipView(scrollView.contentView)
 
         context.coordinator.textView = textView
+        controller?.textView = textView
         context.coordinator.subscribeToUndoNotifications()
         context.coordinator.onCodeBlockSelectionChange = onCodeBlockSelectionChange
 
@@ -276,6 +281,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
 
     public func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.nativeTextView else { return }
+        controller?.textView = textView
         reconcileHeader(textView: textView, context: context)
 
         let isNodeSwitch = context.coordinator.documentId != documentId

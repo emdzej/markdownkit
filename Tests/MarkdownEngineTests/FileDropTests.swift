@@ -88,3 +88,36 @@ struct FileDropAppKitTests {
     }
 }
 #endif
+
+#if os(macOS)
+@MainActor
+@Suite("Editor controller (AppKit)", .serialized)
+struct EditorControllerAppKitTests {
+    final class Box { var text: String; init(_ t: String) { text = t } }
+
+    @Test func insertTextReplacesTheSelectionAsOneUndoStep() async throws {
+        _ = NSApplication.shared
+        let box = Box("Hello world")
+        let controller = MarkdownEditorController()
+        let root = NativeTextViewWrapper(text: Binding(get: { box.text }, set: { box.text = $0 }),
+                                         fontName: "Helvetica", fontSize: 14, controller: controller)
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 500, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: root)
+        window.orderFrontRegardless()
+        defer { window.close() }
+        try? await Task.sleep(for: .seconds(0.5))
+
+        #expect(controller.isAttached)
+        controller.textView?.setSelectedRange(NSRange(location: 6, length: 5))
+        controller.insertText("[Note](Note.md)", actionName: "Link to Note")
+        try? await Task.sleep(for: .seconds(0.2))
+        #expect(box.text == "Hello [Note](Note.md)")
+        #expect(controller.selectedRange == NSRange(location: 21, length: 0))
+        #expect(controller.textView?.undoManager?.undoActionName == "Link to Note")
+        controller.textView?.undoManager?.undo()
+        try? await Task.sleep(for: .seconds(0.2))
+        #expect(box.text == "Hello world")
+    }
+}
+#endif

@@ -27,6 +27,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     /// drop point — `DroppedFile.markdownLink(to:)` builds a link — or nil to
     /// ignore the drop. The `DroppedFile` URLs are temporary copies.
     public var onDropFiles: FileDropHandler?
+    /// Addresses this editor from outside (insert text, focus).
+    public var controller: MarkdownEditorController?
 
     public init(
         text: Binding<String>,
@@ -35,8 +37,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         fontSize: CGFloat = 17,
         documentId: String = "default",
         isEditable: Bool = true,
-        onLinkClick: ((String) -> Void)? = nil,
-        onDropFiles: FileDropHandler? = nil
+        controller: MarkdownEditorController? = nil,
+        onDropFiles: FileDropHandler? = nil,
+        onLinkClick: ((String) -> Void)? = nil
     ) {
         self._text = text
         self.configuration = configuration
@@ -46,6 +49,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.isEditable = isEditable
         self.onLinkClick = onLinkClick
         self.onDropFiles = onDropFiles
+        self.controller = controller
     }
 
     public func makeCoordinator() -> MarkdownUICoordinator {
@@ -61,6 +65,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         tv.delegate = coordinator
         tv.onDropFiles = onDropFiles
         tv.isEditable = isEditable
+        controller?.textView = tv
         apply(configuration, to: tv)
         coordinator.load(text, into: tv)
         return tv
@@ -69,6 +74,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     public func updateUIView(_ view: UIView, context: Context) {
         guard let tv = view as? MarkdownUITextView else { return }
         let coordinator = context.coordinator
+        controller?.textView = tv
         coordinator.onLinkClick = onLinkClick
         tv.onDropFiles = onDropFiles
 

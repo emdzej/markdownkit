@@ -51,18 +51,27 @@ extension NativeTextView {
         window?.makeFirstResponder(self)
         Task { @MainActor [weak self] in
             guard let markdown = await handler(files), !markdown.isEmpty, let self else { return }
-            let insertAt = min(max(location, 0), (self.string as NSString).length)
-            let inserted = NSRange(location: insertAt, length: (markdown as NSString).length)
-            self.breakUndoCoalescing()
-            self.mdReplace(NSRange(location: insertAt, length: 0), with: markdown)
-            self.undoManager?.setActionName(files.count == 1 ? "Insert File" : "Insert Files")
-            self.breakUndoCoalescing()
-            self.setSelectedRange(NSRange(location: NSMaxRange(inserted), length: 0))
-            // A programmatic insert leaves textDidChange no edited range to scope to.
-            let ns = self.string as NSString
-            self.coordinator?.restyleParagraphs([ns.paragraphRange(for: inserted)], in: self)
-            self.updateWideTableOverlays()
+            self.insertMarkdown(markdown, replacing: NSRange(location: location, length: 0),
+                                actionName: files.count == 1 ? "Insert File" : "Insert Files")
         }
+    }
+
+    /// Replaces `range` (clamped to the document) with `markdown` as one
+    /// undoable edit, leaving the caret after it.
+    func insertMarkdown(_ markdown: String, replacing range: NSRange, actionName: String) {
+        let length = (string as NSString).length
+        let start = min(max(range.location, 0), length)
+        let target = NSRange(location: start, length: min(range.length, length - start))
+        let inserted = NSRange(location: start, length: (markdown as NSString).length)
+        breakUndoCoalescing()
+        mdReplace(target, with: markdown)
+        undoManager?.setActionName(actionName)
+        breakUndoCoalescing()
+        setSelectedRange(NSRange(location: NSMaxRange(inserted), length: 0))
+        // A programmatic insert leaves textDidChange no edited range to scope to.
+        let ns = string as NSString
+        coordinator?.restyleParagraphs([ns.paragraphRange(for: inserted)], in: self)
+        updateWideTableOverlays()
     }
 }
 #endif

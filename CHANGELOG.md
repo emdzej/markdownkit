@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `MarkdownEditorController`: pass one to `NativeTextViewWrapper(controller:)`
+  to address that editor from outside: `insertText(_:actionName:)` replaces
+  the selection as one undoable edit, `selectedRange`, `focus()`. Unlike the
+  notification bus it targets a single editor.
 - Link preview cards: a standalone `[text](url){.preview}` (or any size
   attribute) renders as a card (`.small`, `.medium`, `.large`, `.full`;
   `width=` / `height=`; aligned like images), from metadata supplied by the
@@ -59,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pendingInlineReplacement`, `onCaretRectChange`, `onInlineSelectionChange`.
 
 ### Changed
+- UIKit `NativeTextViewWrapper.init` takes `onDropFiles:` before
+  `onLinkClick:`, matching AppKit, so one call site serves both platforms.
 - iOS programmatic edits (list continuation, checkbox taps, table writes)
   go straight to the text storage with their own undo: `replace(_:withText:)`
   applied smart dashes, turning a table's `---` into `—`.
