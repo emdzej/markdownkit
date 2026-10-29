@@ -17,10 +17,7 @@ struct DemoApp: App {
 }
 
 struct EditorScreen: View {
-    // `-tail` launch argument starts at the code/math/table section (handy for screenshots).
-    @State private var text = ProcessInfo.processInfo.arguments.contains("-tail")
-        ? String(sample[sample.range(of: "```swift")!.lowerBound...])
-        : sample
+    @State private var text = sample
 
     private var configuration: MarkdownEditorConfiguration {
         var config = MarkdownEditorConfiguration.default
