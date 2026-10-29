@@ -8,7 +8,7 @@
 import AppKit
 import Foundation
 import SwiftMath
-import MarkdownEngine
+import MarkdownEngineCore
 
 /// A drop-in ``LatexRenderer`` backed by [SwiftMath].
 ///

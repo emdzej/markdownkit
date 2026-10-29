@@ -3,49 +3,49 @@ import PackageDescription
 
 // MarkdownEngine — a TextKit-2 backed Markdown editor view for macOS.
 //
-// Embedders import `MarkdownEngine` and supply their own adapters that
-// conform to the engine's service protocols (`WikiLinkResolver`,
-// `EmbeddedImageProvider`, `SyntaxHighlighter`, `LatexRenderer`). The engine
-// itself has zero external dependencies.
+// To produce a dynamic `MarkdownEngine` product (needed so consumers'
+// binaries don't end up with statically-merged SwiftUI/SwiftUICore symbol
+// references that trip Xcode 26's strict allowable_clients validation),
+// the implementation lives in target `MarkdownEngineCore` and the
+// publicly-imported `MarkdownEngine` target is a thin
+// `@_exported import MarkdownEngineCore` wrapper.
 //
-// Users who want turnkey adapters for the two highest-friction protocols
-// (code-block styling/highlighting, LaTeX rendering) can additionally
-// depend on the `MarkdownEngineCodeBlocks` and/or `MarkdownEngineLatex`
-// products, which ship pre-built bridges backed by HighlighterSwift and
-// SwiftMath respectively. Both products are opt-in: the core
-// `MarkdownEngine` library stays free of those transitive dependencies
-// at link time.
+// Embedders continue to `import MarkdownEngine` exactly as before.
 let package = Package(
     name: "MarkdownEngine",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "MarkdownEngine", targets: ["MarkdownEngine"]),
-        .library(name: "MarkdownEngineCodeBlocks", targets: ["MarkdownEngineCodeBlocks"]),
-        .library(name: "MarkdownEngineLatex", targets: ["MarkdownEngineLatex"]),
+        .library(name: "MarkdownEngine", type: .dynamic, targets: ["MarkdownEngine"]),
+        .library(name: "MarkdownEngineCodeBlocks", type: .dynamic, targets: ["MarkdownEngineCodeBlocks"]),
+        .library(name: "MarkdownEngineLatex", type: .dynamic, targets: ["MarkdownEngineLatex"]),
     ],
     dependencies: [
         .package(url: "https://github.com/smittytone/HighlighterSwift", from: "3.0.0"),
         .package(url: "https://github.com/mgriebling/SwiftMath", from: "1.7.0"),
     ],
     targets: [
-        .target(name: "MarkdownEngine"),
+        .target(name: "MarkdownEngineCore"),
+        .target(
+            name: "MarkdownEngine",
+            dependencies: ["MarkdownEngineCore"]
+        ),
         .target(
             name: "MarkdownEngineCodeBlocks",
             dependencies: [
-                "MarkdownEngine",
+                "MarkdownEngineCore",
                 .product(name: "Highlighter", package: "HighlighterSwift"),
             ]
         ),
         .target(
             name: "MarkdownEngineLatex",
             dependencies: [
-                "MarkdownEngine",
+                "MarkdownEngineCore",
                 .product(name: "SwiftMath", package: "SwiftMath"),
             ]
         ),
         .testTarget(
             name: "MarkdownEngineTests",
-            dependencies: ["MarkdownEngine"]
+            dependencies: ["MarkdownEngineCore"]
         )
     ]
 )

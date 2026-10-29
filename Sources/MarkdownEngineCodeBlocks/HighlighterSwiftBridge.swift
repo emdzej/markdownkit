@@ -8,7 +8,7 @@
 import AppKit
 import Foundation
 import Highlighter
-import MarkdownEngine
+import MarkdownEngineCore
 
 extension Notification.Name {
     /// Posted by ``HighlighterSwiftBridge`` after the macOS appearance flips and themes are re-applied; the engine subscribes via ``SyntaxHighlighter/appearanceDidChangeNotification`` to invalidate cached attributes.
