@@ -33,12 +33,14 @@ extension NativeTextViewWrapper.Coordinator {
         func item(_ title: String, _ action: MarkerAction, on: Bool = false) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: #selector(didChooseMarkerItem(_:)), keyEquivalent: "")
             item.target = self
+            item.image = MenuIcons.image(for: title)
             item.state = on ? .on : .off
             item.representedObject = MarkerMenuPayload(action, location: location, kind: target.kind)
             return item
         }
         func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
             let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            parent.image = MenuIcons.image(for: title)
             let menu = NSMenu(title: title)
             items.forEach(menu.addItem)
             parent.submenu = menu

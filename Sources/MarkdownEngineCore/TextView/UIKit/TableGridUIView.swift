@@ -116,6 +116,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
             UIMenu(options: .displayInline, children: group.map { command in
                 UIAction(
                     title: command.title,
+                    image: MenuIcons.image(for: command.title),
                     attributes: command.isEnabled ? [] : .disabled,
                     state: command.isChecked ? .on : .off
                 ) { [weak self] _ in self?.run(command) }

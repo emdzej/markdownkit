@@ -362,6 +362,7 @@ final class TableGridView: NSView, NSTextFieldDelegate, NSViewToolTipOwner {
             if index > 0 { menu.addItem(.separator()) }
             for command in group {
                 let item = TableMenuItem(title: command.title, action: #selector(runCommand(_:)), keyEquivalent: "")
+                item.image = MenuIcons.image(for: command.title)
                 item.target = self
                 item.isEnabled = command.isEnabled
                 item.state = command.isChecked ? .on : .off

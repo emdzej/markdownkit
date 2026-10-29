@@ -24,20 +24,25 @@ extension NativeTextViewWrapper.Coordinator {
         if let fontIndex = customMenu.items.firstIndex(where: { $0.title == "Font" }) {
             customMenu.removeItem(at: fontIndex)
             let formatItem = NSMenuItem(title: "Format", action: nil, keyEquivalent: "")
+            formatItem.image = MenuIcons.image(for: "Format")
             let formatSubmenu = NSMenu(title: "Format")
             let boldItem = NSMenuItem(title: "Bold", action: #selector(didMarkdownBold(_:)), keyEquivalent: "")
+            boldItem.image = MenuIcons.image(for: "Bold")
             boldItem.target = self
             formatSubmenu.addItem(boldItem)
             let italicItem = NSMenuItem(title: "Italic", action: #selector(didMarkdownItalic(_:)), keyEquivalent: "")
+            italicItem.image = MenuIcons.image(for: "Italic")
             italicItem.target = self
             formatSubmenu.addItem(italicItem)
             formatItem.submenu = formatSubmenu
             customMenu.insertItem(formatItem, at: fontIndex)
 
             let headingItem = NSMenuItem(title: "Heading", action: nil, keyEquivalent: "")
+            headingItem.image = MenuIcons.image(for: "Heading")
             let headingSubmenu = NSMenu(title: "Heading")
             for level in 1...3 {
                 let item = NSMenuItem(title: "H\(level)", action: #selector(didMarkdownHeading(_:)), keyEquivalent: "")
+                item.image = MenuIcons.image(for: "H\(level)")
                 item.target = self
                 item.tag = level
                 headingSubmenu.addItem(item)
@@ -46,11 +51,14 @@ extension NativeTextViewWrapper.Coordinator {
             customMenu.insertItem(headingItem, at: fontIndex + 1)
 
             let listItem = NSMenuItem(title: "Lists", action: nil, keyEquivalent: "")
+            listItem.image = MenuIcons.image(for: "Lists")
             let listSubmenu = NSMenu(title: "Lists")
             let unorderedItem = NSMenuItem(title: "Bullet", action: #selector(didMarkdownUnorderedList(_:)), keyEquivalent: "")
+            unorderedItem.image = MenuIcons.image(for: "Bullet")
             unorderedItem.target = self
             listSubmenu.addItem(unorderedItem)
             let orderedItem = NSMenuItem(title: "Numbered", action: #selector(didMarkdownOrderedList(_:)), keyEquivalent: "")
+            orderedItem.image = MenuIcons.image(for: "Numbered")
             orderedItem.target = self
             listSubmenu.addItem(orderedItem)
             listItem.submenu = listSubmenu
