@@ -25,7 +25,9 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     var revealedTableLocation: Int?
     /// Images and link previews last styled; a change restyles the document.
     var lastContentFingerprint: AnyHashable?
-    private var tableRevealPolicy: MarkdownDetection.TableRevealPolicy { .only(revealedTableLocation) }
+    private var tableRevealPolicy: MarkdownDetection.TableRevealPolicy {
+        configuration.renderingMode == .formatted ? .only(revealedTableLocation) : .caret
+    }
     private var lastSyncedText: String
     private var activeTokenIndices: Set<Int> = []
     private var previousCaretLocation: Int?
@@ -308,6 +310,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     /// the revealed table turns it back into a grid. Returns true if it
     /// handed focus to a grid.
     private func routeSelectionThroughTableGrid(_ tv: MarkdownUITextView) -> Bool {
+        guard configuration.renderingMode == .formatted else { return false }
         let selection = tv.selectedRange
         let table = tableToken(containing: selection.location, in: tv.string)
         if let revealed = revealedTableLocation, table?.range.location != revealed {

@@ -56,6 +56,12 @@ enum MarkdownStyler {
         configuration: MarkdownEditorConfiguration = .default
     ) -> [StyledRange] {
         let tokens = precomputedTokens ?? MarkdownTokenizer.parseTokensViaAST(in: text)
+        if configuration.renderingMode == .source {
+            return MarkdownSourceStyler.styleAttributes(
+                text: text, fontSize: fontSize, tokens: tokens,
+                scopedRanges: scopedRanges, configuration: configuration
+            )
+        }
         let nsText = text as NSString
         let codeTokens = tokens.filter { $0.kind == .codeBlock || $0.kind == .inlineCode }
         let baseFont = PlatformFont.md(named: fontName, size: fontSize)
@@ -91,6 +97,7 @@ enum MarkdownStyler {
         result += styleImageLinks(ctx)
         result += styleLinkPreviews(ctx)
         result += styleTables(ctx)
+        result += styleFrontmatter(ctx)
         return result
     }
 }

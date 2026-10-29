@@ -52,6 +52,10 @@ public struct MarkdownEditorConfiguration: Sendable {
     /// Centered reading-column width; wide tables break out to full width. nil = full width (default).
     public var readingWidth: CGFloat?
     public var spellChecking: SpellCheckingPolicy
+    /// Formatted (markdown blended with rendering) or plain highlighted source.
+    public var renderingMode: RenderingMode
+    /// The look of `.source` mode (and of revealed frontmatter).
+    public var source: SourceModeStyle
 
     public init(
         theme: MarkdownEditorTheme = .default,
@@ -74,7 +78,9 @@ public struct MarkdownEditorConfiguration: Sendable {
         scrollers: ScrollersPolicy = .default,
         textInsets: TextInsets = .default,
         readingWidth: CGFloat? = nil,
-        spellChecking: SpellCheckingPolicy = .default
+        spellChecking: SpellCheckingPolicy = .default,
+        renderingMode: RenderingMode = .formatted,
+        source: SourceModeStyle = .default
     ) {
         self.theme = theme
         self.services = services
@@ -97,9 +103,65 @@ public struct MarkdownEditorConfiguration: Sendable {
         self.textInsets = textInsets
         self.readingWidth = readingWidth
         self.spellChecking = spellChecking
+        self.renderingMode = renderingMode
+        self.source = source
     }
 
     public static let `default` = MarkdownEditorConfiguration()
+}
+
+// MARK: - Rendering mode
+
+/// How the editor shows markdown.
+public enum RenderingMode: String, Sendable, CaseIterable {
+    /// Markers hide away from the caret; images, tables, LaTeX, link cards
+    /// and frontmatter render.
+    case formatted
+    /// Every character as typed, in a monospaced font, with the markdown
+    /// syntax highlighted. Nothing renders.
+    case source
+}
+
+/// Font and colors of `.source` mode. Revealed frontmatter in `.formatted`
+/// mode uses the key color too.
+public struct SourceModeStyle: Sendable {
+    /// PostScript name of the font; nil uses the system monospaced font.
+    public var fontName: String?
+    /// Size relative to the editor's font size (monospaced faces run large).
+    public var fontScale: CGFloat
+    /// Headings (with their `#`s) and list / quote markers; nil uses the theme's link color.
+    public var headingColor: PlatformColor?
+    /// Inline code and fences.
+    public var codeColor: PlatformColor
+    /// Frontmatter keys.
+    public var keyColor: PlatformColor
+    /// `{…}` attribute blocks.
+    public var attributeColor: PlatformColor
+
+    public init(
+        fontName: String? = nil,
+        fontScale: CGFloat = 0.92,
+        headingColor: PlatformColor? = nil,
+        codeColor: PlatformColor = .systemPink,
+        keyColor: PlatformColor = .systemOrange,
+        attributeColor: PlatformColor = .systemPurple
+    ) {
+        self.fontName = fontName
+        self.fontScale = fontScale
+        self.headingColor = headingColor
+        self.codeColor = codeColor
+        self.keyColor = keyColor
+        self.attributeColor = attributeColor
+    }
+
+    public static let `default` = SourceModeStyle()
+
+    /// The source font for an editor font size of `size`.
+    func font(size: CGFloat) -> PlatformFont {
+        let scaled = (size * fontScale).rounded()
+        if let fontName, let font = PlatformFont(name: fontName, size: scaled) { return font }
+        return PlatformFont.monospacedSystemFont(ofSize: scaled, weight: .regular)
+    }
 }
 
 // MARK: - Spell checking

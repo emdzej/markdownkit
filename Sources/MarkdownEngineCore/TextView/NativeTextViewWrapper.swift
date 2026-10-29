@@ -386,6 +386,10 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
                 context.coordinator.restyleParagraphs([fullRange], in: textView)
             }
         }
+        if configuration.renderingMode != context.coordinator.configuration.renderingMode,
+           context.coordinator.didInitialFormatting {
+            switchRenderingMode(to: configuration, textView: textView, scrollView: nsView, coordinator: context.coordinator)
+        }
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.insertionPointColor = isEditable ? context.coordinator.configuration.theme.bodyText : .clear
@@ -470,6 +474,61 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         return coordinator
     }
 }
+// MARK: - Rendering mode
+
+private extension NativeTextViewWrapper {
+    /// Restyles the whole document for a new rendering mode, keeping the
+    /// selection and the text at the top of the viewport where they were.
+    func switchRenderingMode(
+        to configuration: MarkdownEditorConfiguration,
+        textView: NSTextView,
+        scrollView: NSScrollView,
+        coordinator: Coordinator
+    ) {
+        let wasAtTop = scrollView.contentView.bounds.origin.y <= -scrollView.contentInsets.top + 0.5
+        let topCharacter = textView.characterIndexForInsertion(
+            at: NSPoint(x: textView.textContainerInset.width + 1, y: textView.visibleRect.minY + 1)
+        )
+        let topOffset = Self.lineTop(of: topCharacter, in: textView).map { $0 - textView.visibleRect.minY } ?? 0
+
+        coordinator.configuration.renderingMode = configuration.renderingMode
+        coordinator.configuration.source = configuration.source
+        if let native = textView as? NativeTextView {
+            native.configuration.renderingMode = configuration.renderingMode
+            native.configuration.source = configuration.source
+            native.removeAllWideTableOverlays()
+        }
+        coordinator.revealedTableLocation = nil
+        // Before the rebuild: assigning `font` re-fonts the whole storage.
+        let font = TextStylingService.makeBaseFontAndStyle(
+            fontName: fontName, fontSize: fontSize, configuration: coordinator.configuration
+        ).font
+        textView.font = font
+        (textView as? NativeTextView)?.baseFont = font
+        let selection = textView.selectedRanges
+        coordinator.rebuildTextStorageAndStyle(textView, from: textView.string, invalidateLayout: true)
+        textView.selectedRanges = selection
+        (textView as? NativeTextView)?.recalcOverscroll(for: scrollView)
+
+        let y: CGFloat? = wasAtTop
+            ? -scrollView.contentInsets.top
+            : Self.lineTop(of: topCharacter, in: textView).map { $0 - topOffset }
+        if let y {
+            scrollView.contentView.scroll(to: NSPoint(x: scrollView.contentView.bounds.origin.x, y: y))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+            (scrollView as? ClampedScrollView)?.clampToInsets()
+        }
+    }
+
+    /// The y of the layout fragment holding `location`, in text view coordinates.
+    static func lineTop(of location: Int, in textView: NSTextView) -> CGFloat? {
+        guard let tlm = textView.textLayoutManager, let tcs = tlm.textContentManager,
+              let textLocation = tcs.location(tcs.documentRange.location, offsetBy: max(0, location)),
+              let fragment = tlm.textLayoutFragment(for: textLocation) else { return nil }
+        return fragment.layoutFragmentFrame.minY + textView.textContainerOrigin.y
+    }
+}
+
 // MARK: - Scrolling header view
 
 private extension NativeTextViewWrapper {
