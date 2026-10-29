@@ -33,6 +33,7 @@ enum BlockKind: Equatable {
     case table           // GFM table — opaque (rendered as a unit)
     case thematicBreak   // `---` / `***` / `___` — produces no token today
     case blank           // blank / whitespace-only line(s) — separator
+    case frontmatter     // YAML `---` … `---` at the very start of the document — opaque
 }
 
 /// One block; `range` is the absolute UTF-16 span of its lines, tiling with no gaps.
@@ -121,6 +122,12 @@ enum BlockParser {
             return nil
         }
 
+        // Frontmatter only exists at the document start and can swallow (or
+        // release) everything up to a distant closing `---` → full reparse
+        // for edits in it, or while the text opens with `---` but has none yet.
+        if oldBlocks[0].kind == .frontmatter, changeStart <= NSMaxRange(oldBlocks[0].range) { return nil }
+        if oldBlocks[0].kind != .frontmatter, newLen >= 3, n[0] == 0x2D, n[1] == 0x2D, n[2] == 0x2D { return nil }
+
         // 2. Affected old-block window (±1 block margin for merges/splits).
         var firstIdx = 0
         while firstIdx + 1 < oldBlocks.count, oldBlocks[firstIdx + 1].range.location <= changeStart { firstIdx += 1 }
@@ -141,7 +148,7 @@ enum BlockParser {
 
         // 5. Reparse just the window substring, shift to absolute new coords.
         let windowText = newNS.substring(with: NSRange(location: winStart, length: winEndNew - winStart))
-        let reparsed = computeBlocks(windowText).map { $0.shifted(by: winStart) }
+        let reparsed = computeBlocks(windowText, atDocumentStart: winStart == 0).map { $0.shifted(by: winStart) }
         // A trailing fence/latex reaching the window end might continue past it.
         if let last = reparsed.last, last.kind == .fencedCode || last.kind == .blockLatex,
            NSMaxRange(last.range) >= winEndNew {
@@ -166,7 +173,7 @@ enum BlockParser {
         return (result, reparsed.count)
     }
 
-    private static func computeBlocks(_ text: String) -> [Block] {
+    private static func computeBlocks(_ text: String, atDocumentStart: Bool = true) -> [Block] {
         let nsText = text as NSString
         let length = nsText.length
         guard length > 0 else { return [] }
@@ -194,6 +201,10 @@ enum BlockParser {
         // 2. Classify + group.
         var blocks: [Block] = []
         var i = 0
+        if atDocumentStart, let end = frontmatterCloseIndex(lineCount: lines.count, line: lineText) {
+            blocks.append(Block(kind: .frontmatter, range: union(lines[0...end])))
+            i = end + 1
+        }
         while i < lines.count {
             let line = lineText(i)
 
@@ -267,6 +278,24 @@ enum BlockParser {
     }
 
     // MARK: - Line classification
+
+    /// Line index of the line closing a frontmatter block that opens the
+    /// document (`---` … `---` or `...`), or nil. The first non-blank line
+    /// inside must look like YAML (`key:` / `- item`), so a document that
+    /// merely starts with a rule and has another one later isn't swallowed.
+    static func frontmatterCloseIndex(lineCount: Int, line lineText: (Int) -> String) -> Int? {
+        guard lineCount > 1, lineText(0).trimmingCharacters(in: .whitespacesAndNewlines) == "---" else { return nil }
+        var checkedFirst = false
+        for j in 1..<lineCount {
+            let line = lineText(j).trimmingCharacters(in: .whitespacesAndNewlines)
+            if line == "---" || line == "..." { return j }
+            if !checkedFirst, !line.isEmpty {
+                checkedFirst = true
+                guard line.hasPrefix("#") || line.hasPrefix("- ") || line.contains(":") else { return nil }
+            }
+        }
+        return nil
+    }
 
     private static func isBlank(_ line: String) -> Bool {
         line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
