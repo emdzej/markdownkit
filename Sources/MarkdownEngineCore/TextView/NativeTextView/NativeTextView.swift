@@ -42,6 +42,8 @@ final class NativeTextView: NSTextView {
 
     // MARK: Editor wiring
     var onPasteImage: ((NSPasteboard) -> String?)?
+    /// Embedder hook for files dropped onto the editor; see `+FileDrop.swift`.
+    var onDropFiles: FileDropHandler?
     weak var layoutBridge: LayoutBridge?
     var baseFont: PlatformFont = PlatformFont.systemFont(ofSize: PlatformFont.systemFontSize)
 

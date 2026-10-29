@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- File drops: `NativeTextViewWrapper(onDropFiles:)` (macOS and iOS) passes
+  dropped files to the embedder, which stores them and returns the markdown
+  to insert at the drop point (one undoable edit). `DroppedFile` describes
+  each file; `markdownLink(to:)` builds an image or file link.
 - WYSIWYG tables (macOS and iOS): every GFM table is an editable grid. Click a cell
   to edit its raw inline markdown; Tab / Shift-Tab / Return / arrows move
   between cells (Tab past the last cell or Return in the last row adds a

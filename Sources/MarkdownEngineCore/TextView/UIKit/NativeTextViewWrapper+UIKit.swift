@@ -22,6 +22,11 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     public var isEditable: Bool
     /// Called with the target of a tapped link (the markdown link destination).
     public var onLinkClick: ((String) -> Void)?
+    /// Called with files dropped onto the editor. Store them (e.g. copy them
+    /// into an attachments folder) and return the markdown to insert at the
+    /// drop point — `DroppedFile.markdownLink(to:)` builds a link — or nil to
+    /// ignore the drop. The `DroppedFile` URLs are temporary copies.
+    public var onDropFiles: FileDropHandler?
 
     public init(
         text: Binding<String>,
@@ -30,7 +35,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         fontSize: CGFloat = 17,
         documentId: String = "default",
         isEditable: Bool = true,
-        onLinkClick: ((String) -> Void)? = nil
+        onLinkClick: ((String) -> Void)? = nil,
+        onDropFiles: FileDropHandler? = nil
     ) {
         self._text = text
         self.configuration = configuration
@@ -39,6 +45,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.documentId = documentId
         self.isEditable = isEditable
         self.onLinkClick = onLinkClick
+        self.onDropFiles = onDropFiles
     }
 
     public func makeCoordinator() -> MarkdownUICoordinator {
@@ -52,6 +59,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.onLinkClick = onLinkClick
         coordinator.documentId = documentId
         tv.delegate = coordinator
+        tv.onDropFiles = onDropFiles
         tv.isEditable = isEditable
         apply(configuration, to: tv)
         coordinator.load(text, into: tv)
@@ -62,6 +70,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         guard let tv = view as? MarkdownUITextView else { return }
         let coordinator = context.coordinator
         coordinator.onLinkClick = onLinkClick
+        tv.onDropFiles = onDropFiles
 
         let documentChanged = coordinator.documentId != documentId
         let fontChanged = coordinator.fontName != fontName || coordinator.fontSize != fontSize

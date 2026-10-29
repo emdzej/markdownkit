@@ -35,6 +35,7 @@ When we started building **[Nodes](https://apps.apple.com/de/app/nodes-by-the-we
 - **Images** — standard Markdown `![alt](source)`, embedder supplies the bytes
 - **LaTeX** — both block (`$$ … $$`) and inline (`$…$`), embedder supplies
   the renderer
+- **File drops** — dropped files go to your `onDropFiles` hook, which stores them and returns the link to insert
 - **Code blocks** with embedder-supplied syntax highlighting and overlayable
   copy buttons
 - **Reading column** — opt-in fixed-width centered column, wide tables
@@ -206,6 +207,31 @@ configuration.overscroll.percent = 0.4
 configuration.lists.helpersEnabled = false
 configuration.safeAreaInsets = SafeAreaInsets(top: 56)   // headroom under a translucent toolbar
 ```
+
+### Dropping Files
+
+Pass `onDropFiles` to accept files dragged onto the editor (Finder, Files,
+Photos, Mail, …). Store them wherever your app keeps attachments and return
+the markdown to insert at the drop point; `DroppedFile.markdownLink(to:)`
+builds `![](…)` for images and `[name](…)` for everything else, with the path
+percent-encoded. The engine inserts the result as one undoable edit. Return
+`nil` to ignore the drop.
+
+```swift
+NativeTextViewWrapper(text: $text, onDropFiles: { files in
+    var links: [String] = []
+    for file in files {
+        let target = attachmentsFolder.appending(path: file.name)
+        try? FileManager.default.copyItem(at: file.url, to: target)
+        links.append(file.markdownLink(to: "_attachments/\(file.name)"))
+    }
+    return links.joined(separator: "\n")
+})
+```
+
+On iOS the `DroppedFile` URLs are temporary copies, deleted after the
+handler returns — copy them, don't keep the URLs. Dragged text keeps the
+system behaviour.
 
 ### Reading Column
 

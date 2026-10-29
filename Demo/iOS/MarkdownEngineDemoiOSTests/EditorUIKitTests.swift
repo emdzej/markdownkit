@@ -1,8 +1,8 @@
 //
-//  TableGridUIKitTests.swift
+//  EditorUIKitTests.swift
 //  MarkdownEngineTests
 //
-//  End-to-end table grid editing on iOS: the real SwiftUI wrapper in a
+//  End-to-end UIKit editor tests (table grid, file drops): the real SwiftUI wrapper in a
 //  window, driven through the grid like a user would, asserting on the
 //  markdown binding. Hosted by the demo app so UIKit has a window scene to
 //  lay out and render in (package tests on iOS run without one).
@@ -15,8 +15,8 @@ import UIKit
 @testable import MarkdownEngineCore
 
 @MainActor
-@Suite("Table grid editing (UIKit)", .serialized)
-struct TableGridUIKitTests {
+@Suite("UIKit editor", .serialized)
+struct EditorUIKitTests {
 
     final class Box { var text: String; init(_ t: String) { text = t } }
 
@@ -39,13 +39,13 @@ struct TableGridUIKitTests {
         }
     }
 
-    private func makeHarness(_ text: String) async -> Harness {
+    private func makeHarness(_ text: String, onDropFiles: FileDropHandler? = nil) async -> Harness {
         let box = Box(text)
         let binding = Binding(get: { box.text }, set: { box.text = $0 })
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first!
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(x: 0, y: 0, width: 390, height: 700)
-        window.rootViewController = UIHostingController(rootView: NativeTextViewWrapper(text: binding, fontSize: 15))
+        window.rootViewController = UIHostingController(rootView: NativeTextViewWrapper(text: binding, fontSize: 15, onDropFiles: onDropFiles))
         window.makeKeyAndVisible()
         let h = Harness(window: window, box: box)
         await h.spin(0.6)
@@ -127,6 +127,19 @@ struct TableGridUIKitTests {
         tv.undoManager?.redo()
         await h.spin()
         #expect(h.box.text.contains("| 9   | 2   |"))
+    }
+
+    @Test func fileDropInsertsHandlerMarkdownAsOneUndoStep() async throws {
+        let h = await makeHarness("Before\nAfter") { files in
+            files.map { $0.markdownLink(to: "_attachments/\($0.name)") }.joined(separator: "\n")
+        }
+        let tv = try #require(h.textView)
+        await tv.insertDroppedFiles([DroppedFile(url: URL(fileURLWithPath: "/tmp/cat.png"))], at: 7)
+        await h.spin()
+        #expect(h.box.text == "Before\n![](_attachments/cat.png)After")
+        tv.undoManager?.undo()
+        await h.spin()
+        #expect(h.box.text == "Before\nAfter")
     }
 }
 #endif

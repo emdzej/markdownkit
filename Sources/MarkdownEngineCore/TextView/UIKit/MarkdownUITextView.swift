@@ -15,6 +15,8 @@ final class MarkdownUITextView: UITextView {
     var configuration: MarkdownEditorConfiguration = .default
     var baseFont: PlatformFont = .preferredFont(forTextStyle: .body)
     var layoutBridge: LayoutBridge?
+    /// Embedder hook for files dropped onto the editor; see `+FileDrop.swift`.
+    var onDropFiles: FileDropHandler?
 
     /// Strongly held: NSTextLayoutManager.delegate is weak.
     private(set) var layoutDelegate = MarkdownLayoutManagerDelegate()
@@ -51,6 +53,7 @@ final class MarkdownUITextView: UITextView {
         textContainer.lineFragmentPadding = 0
 
         addGestureRecognizer(checkboxTap)
+        textDropDelegate = self
 
         registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, _: UITraitCollection) in
             self.appearanceChanged()

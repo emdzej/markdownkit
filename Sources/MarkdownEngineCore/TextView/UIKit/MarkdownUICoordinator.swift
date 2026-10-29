@@ -283,8 +283,9 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         }
     }
 
-    /// Re-renders a table whose source the grid just replaced.
-    func tableSourceDidChange(in tv: MarkdownUITextView, range: NSRange) {
+    /// Syncs and restyles after the engine itself changed `range` (a table
+    /// write-back, a file drop): those edits carry no typed edited range.
+    func programmaticEditDidChange(in tv: MarkdownUITextView, range: NSRange) {
         textChanged(tv)
         let ns = tv.string as NSString
         guard NSMaxRange(range) <= ns.length else { return }

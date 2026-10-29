@@ -47,6 +47,11 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     /// `"![](attachments/photo.png)"`) to insert at the caret, or `nil` to fall through
     /// to the system's default plain-text paste.
     public var onPasteImage: ((NSPasteboard) -> String?)?
+    /// Called with files dropped onto the editor. Store them (e.g. copy them
+    /// into an attachments folder) and return the markdown to insert at the
+    /// drop point — `DroppedFile.markdownLink(to:)` builds a link — or nil to
+    /// ignore the drop. Without a handler, file drops behave as in NSTextView.
+    public var onDropFiles: FileDropHandler?
 
     /// Fires when the user clicks a link, with its destination. When nil,
     /// AppKit opens the URL itself.
@@ -90,6 +95,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         documentId: String = "default",
         isEditable: Bool = true,
         onPasteImage: ((NSPasteboard) -> String?)? = nil,
+        onDropFiles: FileDropHandler? = nil,
         onLinkClick: ((String) -> Void)? = nil,
         onCodeBlockSelectionChange: (([CodeBlockSelection]) -> Void)? = nil,
         onSpellCheckingPolicyChanged: ((SpellCheckingPolicy) -> Void)? = nil,
@@ -106,6 +112,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         self.documentId = documentId
         self.isEditable = isEditable
         self.onPasteImage = onPasteImage
+        self.onDropFiles = onDropFiles
         self.onLinkClick = onLinkClick
         self.onCodeBlockSelectionChange = onCodeBlockSelectionChange
         self.onSpellCheckingPolicyChanged = onSpellCheckingPolicyChanged
@@ -187,6 +194,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.isAutomaticDataDetectionEnabled = true
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.onPasteImage = onPasteImage
+        textView.onDropFiles = onDropFiles
         if #available(macOS 15.1, *) {
             textView.writingToolsBehavior = .complete
         }
@@ -301,6 +309,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         }
 
         textView.onPasteImage = onPasteImage
+        textView.onDropFiles = onDropFiles
         textView.setPlaceholder(placeholder)
         if nsView.hasVerticalScroller != configuration.scrollers.hasVerticalScroller {
             nsView.hasVerticalScroller = configuration.scrollers.hasVerticalScroller
