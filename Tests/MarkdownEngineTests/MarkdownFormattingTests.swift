@@ -125,3 +125,50 @@ struct HTMLCommentLineTests {
         #expect(!MarkdownASTStyler.isHTMLComment("<!-- open"))
     }
 }
+
+@Suite("Checklists")
+struct ChecklistTests {
+    private func run(_ action: MarkdownFormatting.ChecklistAction, _ text: String, at location: Int) -> String {
+        guard let edit = MarkdownFormatting.checklist(action, in: text, selection: NSRange(location: location, length: 0)) else { return text }
+        return (text as NSString).replacingCharacters(in: edit.range, with: edit.replacement)
+    }
+
+    @Test func toggleChecksThenUnchecks() {
+        let text = "- [ ] milk\n- [ ] eggs"
+        let once = run(.toggleChecked, text, at: 2)
+        #expect(once == "- [x] milk\n- [ ] eggs")
+        #expect(run(.toggleChecked, once, at: 2) == text)
+    }
+
+    @Test func toggleOnPlainLineMakesAnItem() {
+        #expect(run(.toggleChecked, "buy milk", at: 0) == "- [ ] buy milk")
+    }
+
+    @Test func checkAllAndUncheckAllStayInsideTheList() {
+        let text = "Intro\n\n- [ ] a\n- [x] b\n\nAfter"
+        #expect(run(.checkAll, text, at: 9) == "Intro\n\n- [x] a\n- [x] b\n\nAfter")
+        #expect(run(.uncheckAll, text, at: 9) == "Intro\n\n- [ ] a\n- [ ] b\n\nAfter")
+    }
+
+    @Test func checkedItemsMoveDownWithTheirChildren() {
+        let text = "- [x] done\n  - [ ] sub\n- [ ] todo\n"
+        #expect(run(.moveCheckedToBottom, text, at: 0) == "- [ ] todo\n- [x] done\n  - [ ] sub\n")
+    }
+
+    @Test func deleteCheckedRemovesOnlyChecked() {
+        let text = "- [x] a\n- [ ] b\n- [X] c"
+        #expect(run(.deleteChecked, text, at: 0) == "- [ ] b")
+    }
+
+    @Test func tappingWithAutoSortMovesTheItemDown() throws {
+        let text = "- [ ] a\n- [ ] b\n- [ ] c\n"
+        let edit = try #require(MarkdownFormatting.toggleCheckbox(at: 3, in: text, moveCheckedToBottom: true))
+        let result = (text as NSString).replacingCharacters(in: edit.range, with: edit.replacement)
+        #expect(result == "- [ ] b\n- [ ] c\n- [x] a\n")
+    }
+
+    @Test func progressCountsItems() {
+        let p = MarkdownFormatting.checklistProgress(in: "- [x] a\n- [ ] b\n* [X] c\ntext")
+        #expect(p.done == 2 && p.total == 3)
+    }
+}

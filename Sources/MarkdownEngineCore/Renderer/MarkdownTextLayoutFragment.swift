@@ -565,11 +565,16 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
 
             let iconInset = max(0.0, size * 0.01)
             let iconRect = boxRect.insetBy(dx: iconInset, dy: iconInset)
-            let symbolName = isChecked ? "checkmark.square.fill" : "square"
+            let configuration = textLayoutManager?.mdHost?.configuration
+            let round = configuration?.checkbox.shape == .circle
+            let symbolName = round
+                ? (isChecked ? "checkmark.circle.fill" : "circle")
+                : (isChecked ? "checkmark.square.fill" : "square")
             if let baseSymbol = PlatformImage.mdSymbol(symbolName) {
                 let sizeConfig = PlatformImage.SymbolConfiguration(pointSize: iconRect.height, weight: .regular)
-                let theme = textLayoutManager?.mdHost?.configuration.theme ?? .default
-                let tint = isChecked ? theme.bodyText : theme.mutedText
+                let theme = configuration?.theme ?? .default
+                // Round boxes: checked in the accent (link) color, as Notes does in yellow.
+                let tint = isChecked ? (round ? theme.link : theme.bodyText) : theme.mutedText
                 let colorConfig = PlatformImage.SymbolConfiguration(hierarchicalColor: tint)
                 let symbolConfig = sizeConfig.applying(colorConfig)
                 let symbol = baseSymbol.mdApplying(symbolConfig) ?? baseSymbol

@@ -118,6 +118,11 @@ final class MarkdownUITextView: UITextView {
         guard let (range, checked) = checkboxRange(at: gesture.location(in: self)) else { return }
         let text = (textStorage.string as NSString).substring(with: range)
         guard text.range(of: #"\[[ xX]\]"#, options: .regularExpression) != nil else { return }
+        if configuration.checkbox.movesCheckedToBottom, !checked,
+           let edit = MarkdownFormatting.toggleCheckbox(at: range.location, in: textStorage.string, moveCheckedToBottom: true) {
+            insertMarkdown(edit.replacement, replacing: edit.range, actionName: "Check")
+            return
+        }
         mdReplace(range, with: checked ? "[ ]" : "[x]")
         (delegate as? MarkdownUICoordinator)?.textChanged(self)
     }

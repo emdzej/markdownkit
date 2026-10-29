@@ -177,6 +177,16 @@ public final class MarkdownEditorController {
         perform("Format") { MarkdownFormatting.setBlock(style, in: $0, selection: $1) }
     }
 
+    /// Mark as checked, check / uncheck all, move checked to the bottom, delete checked.
+    public func checklist(_ action: MarkdownFormatting.ChecklistAction) {
+        guard let textView, let selection = selectedRange,
+              let edit = MarkdownFormatting.checklist(action, in: textView.string, selection: selection) else { return }
+        textView.insertMarkdown(edit.replacement, replacing: edit.range, actionName: "Checklist")
+        let length = (textView.string as NSString).length
+        textView.setSelectedRange(NSRange(location: min(edit.selection.location, length), length: 0))
+        refreshBlockStyle()
+    }
+
     public func indent() { perform("Indent") { MarkdownFormatting.indent(true, in: $0, selection: $1) } }
     public func outdent() { perform("Outdent") { MarkdownFormatting.indent(false, in: $0, selection: $1) } }
 

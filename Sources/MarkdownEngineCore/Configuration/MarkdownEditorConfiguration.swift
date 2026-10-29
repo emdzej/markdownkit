@@ -548,6 +548,12 @@ public struct CheckboxStyle: Sendable {
     public var sizeFromMarkerWidthFactor: CGFloat
     /// Inset applied inside the checkbox bounding box before drawing the icon.
     public var iconInsetFraction: CGFloat
+    /// Square boxes (default) or round ones, as in Apple Notes.
+    public var shape: Shape = .square
+    /// Checking an item moves it below the unchecked ones of its checklist.
+    public var movesCheckedToBottom = false
+
+    public enum Shape: String, Sendable, CaseIterable { case square, circle }
 
     public init(
         minimumExtraSpacing: CGFloat = 2.0,

@@ -43,6 +43,14 @@ extension NativeTextView {
         let checkboxText = nsText.substring(with: effectiveRange)
         guard checkboxText.range(of: #"\[[ xX]\]"#, options: .regularExpression) != nil else { return nil }
 
+        // Checking an item may also move it down (one undoable edit).
+        if configuration.checkbox.movesCheckedToBottom, !hitIsChecked,
+           let edit = MarkdownFormatting.toggleCheckbox(at: effectiveRange.location, in: storage.string, moveCheckedToBottom: true) {
+            insertMarkdown(edit.replacement, replacing: edit.range, actionName: "Check")
+            setSelectedRange(edit.selection)
+            return true
+        }
+
         let replacement = hitIsChecked ? "[ ]" : "[x]"
         if shouldChangeText(in: effectiveRange, replacementString: replacement) {
             storage.replaceCharacters(in: effectiveRange, with: replacement)
