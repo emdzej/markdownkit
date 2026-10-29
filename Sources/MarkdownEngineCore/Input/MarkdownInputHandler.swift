@@ -7,30 +7,28 @@
 
 // Handles Markdown typing shortcuts, like continuing lists and keeping block
 // LaTeX on its own line while you type.
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 
 enum MarkdownInputHandler {
 
-    static func handleListInsertion(textView: NSTextView, affectedCharRange: NSRange, replacementString: String?) -> Bool {
+    static func handleListInsertion(textView: PlatformTextView, affectedCharRange: NSRange, replacementString: String?) -> Bool {
         return MarkdownLists.handleInsertion(textView: textView, affectedCharRange: affectedCharRange, replacementString: replacementString)
     }
 
     // MARK: - Block LaTeX Auto-Wrap
 
-    private static func insertTextProgrammatically(_ textView: NSTextView, text: String, at range: NSRange, cursorAfter: Int) {
-        if let coord = textView.delegate as? NativeTextViewWrapper.Coordinator {
-            coord.isProgrammaticEdit = true
-        }
-        textView.insertText(text, replacementRange: range)
-        if let coord = textView.delegate as? NativeTextViewWrapper.Coordinator {
-            coord.isProgrammaticEdit = false
-        }
+    private static func insertTextProgrammatically(_ textView: PlatformTextView, text: String, at range: NSRange, cursorAfter: Int) {
+        textView.mdReplace(range, with: text)
         textView.setSelectedRange(NSRange(location: cursorAfter, length: 0))
     }
 
     /// Keeps block LaTeX ($$...$$) on its own line by inserting newlines; returns true if handled.
     static func handleBlockLatexAutoWrap(
-        textView: NSTextView,
+        textView: PlatformTextView,
         affectedCharRange: NSRange,
         replacementString: String?,
         blockLatexTokens: [MarkdownToken]? = nil
@@ -47,7 +45,7 @@ enum MarkdownInputHandler {
 
     /// Ensures image embeds (![[...]]) stay on their own line by automatically inserting newlines.
     static func handleImageEmbedAutoWrap(
-        textView: NSTextView,
+        textView: PlatformTextView,
         affectedCharRange: NSRange,
         replacementString: String?,
         imageEmbedTokens: [MarkdownToken]? = nil
@@ -64,7 +62,7 @@ enum MarkdownInputHandler {
 
     /// Shared auto-wrap logic: ensures a block-level token stays on its own line.
     private static func handleBlockAutoWrap(
-        textView: NSTextView,
+        textView: PlatformTextView,
         affectedCharRange: NSRange,
         replacementString: String?,
         tokens: [MarkdownToken]

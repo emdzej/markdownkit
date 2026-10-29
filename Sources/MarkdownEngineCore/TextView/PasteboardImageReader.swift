@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  PasteboardImageReader.swift
 //  MarkdownEngine
@@ -42,7 +43,7 @@ public enum PasteboardImageReader {
     /// PNG-encoded image data extracted from the pasteboard, or `nil` when
     /// no decodable image is available.
     ///
-    /// Tries `.png`, then `.tiff`, then any registered `NSImage` initializer,
+    /// Tries `.png`, then `.tiff`, then any registered `PlatformImage` initializer,
     /// then falls back to scanning every type the pasteboard advertises.
     public static func imageData(from pasteboard: NSPasteboard) -> Data? {
         if let pngData = pasteboard.data(forType: .png), !pngData.isEmpty {
@@ -55,7 +56,7 @@ public enum PasteboardImageReader {
             return pngData
         }
 
-        if let images = pasteboard.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage],
+        if let images = pasteboard.readObjects(forClasses: [PlatformImage.self], options: nil) as? [PlatformImage],
            let image = images.first,
            let pngData = pngData(from: image) {
             return pngData
@@ -64,27 +65,27 @@ public enum PasteboardImageReader {
         for type in pasteboard.types ?? [] where type != .png && type != .tiff {
             guard let data = pasteboard.data(forType: type),
                   !data.isEmpty,
-                  let image = NSImage(data: data),
+                  let image = PlatformImage(data: data),
                   let pngData = pngData(from: image) else {
                 continue
             }
             return pngData
         }
 
-        guard let image = NSImage(pasteboard: pasteboard) else {
+        guard let image = PlatformImage(pasteboard: pasteboard) else {
             return nil
         }
         return pngData(from: image)
     }
 
-    private static func pngData(from image: NSImage) -> Data? {
+    private static func pngData(from image: PlatformImage) -> Data? {
         if let tiffData = image.tiffRepresentation,
            let bitmapRep = NSBitmapImageRep(data: tiffData),
            let pngData = bitmapRep.representation(using: .png, properties: [:]) {
             return pngData
         }
 
-        var proposedRect = NSRect(origin: .zero, size: image.size)
+        var proposedRect = CGRect(origin: .zero, size: image.size)
         guard let cgImage = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil) else {
             return nil
         }
@@ -92,3 +93,5 @@ public enum PasteboardImageReader {
         return bitmapRep.representation(using: .png, properties: [:])
     }
 }
+
+#endif

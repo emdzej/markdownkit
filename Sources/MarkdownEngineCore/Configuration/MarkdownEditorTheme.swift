@@ -13,7 +13,11 @@
 //  the colors without touching engine source files.
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 // MARK: - Theme
@@ -22,29 +26,29 @@ import Foundation
 ///
 /// Every color the engine puts on screen is read from this struct, so a
 /// single override is enough to retheme the entire editor. The defaults
-/// reproduce a system-native macOS look using `NSColor` dynamic system
+/// reproduce a system-native macOS look using `PlatformColor` dynamic system
 /// colors, so light/dark-mode switching keeps working without extra code.
 public struct MarkdownEditorTheme: Sendable {
 
     // MARK: Text colors
 
     /// Foreground color for plain body text and the typing caret.
-    public var bodyText: NSColor
+    public var bodyText: PlatformColor
     /// Foreground color for de-emphasized text and most syntax markers.
     /// Defaults to `secondaryLabelColor` so it tracks the system style.
-    public var mutedText: NSColor
+    public var mutedText: PlatformColor
     /// Foreground color for content the engine wants to deemphasize further
     /// than `mutedText` — for example, broken wiki-links.
-    public var disabledText: NSColor
+    public var disabledText: PlatformColor
     /// Foreground color for heading marker glyphs (`#`, `##`, …).
-    public var headingMarker: NSColor
+    public var headingMarker: PlatformColor
 
     // MARK: Links
 
     /// Foreground color for hyperlinks that resolve to an URL.
-    public var link: NSColor
+    public var link: PlatformColor
     /// Foreground color for incomplete `[text]` patterns (no URL yet).
-    public var incompleteLink: NSColor
+    public var incompleteLink: PlatformColor
 
     // MARK: Find / search highlights
 
@@ -55,39 +59,39 @@ public struct MarkdownEditorTheme: Sendable {
     /// this still get a sensible result. Apps with their own brand color
     /// (for example, the Nodes app uses its custom yellow) should override
     /// this to match their palette.
-    public var findMatchHighlight: NSColor
+    public var findMatchHighlight: PlatformColor
     /// Background color used to highlight the currently-focused match
     /// during in-document search. Typically a stronger version of
     /// ``findMatchHighlight``.
-    public var findCurrentMatchHighlight: NSColor
+    public var findCurrentMatchHighlight: PlatformColor
 
     // MARK: LaTeX rendering
 
     /// Foreground color used when rendering LaTeX formulas in light mode.
-    public var latexLightModeText: NSColor
+    public var latexLightModeText: PlatformColor
     /// Foreground color used when rendering LaTeX formulas in dark mode.
-    public var latexDarkModeText: NSColor
+    public var latexDarkModeText: PlatformColor
 
     // MARK: Strikethrough / decoration
 
     /// Stroke color used for strikethrough decorations
     /// (e.g. completed task list items, horizontal rules).
-    public var strikethroughColor: NSColor
+    public var strikethroughColor: PlatformColor
 
     // MARK: Init
 
     public init(
-        bodyText: NSColor = .labelColor,
-        mutedText: NSColor = .secondaryLabelColor,
-        disabledText: NSColor = .tertiaryLabelColor,
-        headingMarker: NSColor = .gray,
-        link: NSColor = .linkColor,
-        incompleteLink: NSColor = .systemBlue,
-        findMatchHighlight: NSColor = .systemYellow,
-        findCurrentMatchHighlight: NSColor = .systemYellow,
-        latexLightModeText: NSColor = .black,
-        latexDarkModeText: NSColor = .white,
-        strikethroughColor: NSColor = .labelColor
+        bodyText: PlatformColor = .mdLabel,
+        mutedText: PlatformColor = .mdSecondaryLabel,
+        disabledText: PlatformColor = .mdTertiaryLabel,
+        headingMarker: PlatformColor = .gray,
+        link: PlatformColor = .mdLink,
+        incompleteLink: PlatformColor = .systemBlue,
+        findMatchHighlight: PlatformColor = .systemYellow,
+        findCurrentMatchHighlight: PlatformColor = .systemYellow,
+        latexLightModeText: PlatformColor = .black,
+        latexDarkModeText: PlatformColor = .white,
+        strikethroughColor: PlatformColor = .mdLabel
     ) {
         self.bodyText = bodyText
         self.mutedText = mutedText
@@ -102,7 +106,7 @@ public struct MarkdownEditorTheme: Sendable {
         self.strikethroughColor = strikethroughColor
     }
 
-    /// System-native palette built from `NSColor` dynamic system colors.
+    /// System-native palette built from `PlatformColor` dynamic system colors.
     ///
     /// Use this if you want the engine to look like a stock macOS
     /// `NSTextView`. It's also the default when no theme is supplied.

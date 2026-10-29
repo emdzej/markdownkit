@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextView.swift
 //  MarkdownEngine
@@ -42,7 +43,7 @@ final class NativeTextView: NSTextView {
     // MARK: Editor wiring
     var onPasteImage: ((NSPasteboard) -> String?)?
     weak var layoutBridge: LayoutBridge?
-    var baseFont: NSFont = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+    var baseFont: PlatformFont = PlatformFont.systemFont(ofSize: PlatformFont.systemFontSize)
 
     // MARK: Caret-workaround state
     var caretIndicatorObservation: NSKeyValueObservation?
@@ -50,7 +51,7 @@ final class NativeTextView: NSTextView {
     var isApplyingCaretShift: Bool = false
 
     // MARK: Drag-select state
-    var dragStartMouseScreenLoc: NSPoint?
+    var dragStartMouseScreenLoc: CGPoint?
 
     // MARK: Placeholder state
     /// Click-through ghost-text label shown while the document is empty;
@@ -85,3 +86,5 @@ final class NativeTextView: NSTextView {
 
     deinit { caretIndicatorObservation?.invalidate() }
 }
+
+#endif

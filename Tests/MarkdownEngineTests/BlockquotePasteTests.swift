@@ -10,7 +10,7 @@
 
 import Foundation
 import Testing
-@testable import MarkdownEngine
+@testable import MarkdownEngineCore
 
 @Suite("Blockquote multi-line paste")
 struct BlockquotePasteTests {

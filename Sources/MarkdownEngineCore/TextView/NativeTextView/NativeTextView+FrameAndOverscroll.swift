@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextView+FrameAndOverscroll.swift
 //  MarkdownEngine
@@ -101,7 +102,7 @@ extension NativeTextView {
         var visited = 0
         // Geometry of the fragment containing the document end — the extra line
         // fragment normalization below needs its frame and line boxes.
-        var lastFragmentFrame: NSRect = .zero
+        var lastFragmentFrame: CGRect = .zero
         var lastFragmentLineBoxes: [CGRect] = []
         textLayoutManager.enumerateTextLayoutFragments(
             from: documentEnd,
@@ -194,7 +195,7 @@ extension NativeTextView {
         // Reading column: the column keeps its fixed wrap width; its centered X is
         // owned by `centerReadingColumn` (driven from the container's restack).
         let targetWidth = configuration.readingWidth != nil ? readingColumnWidth : max(width, 0)
-        let targetSize = NSSize(
+        let targetSize = CGSize(
             width: targetWidth,
             height: height
         )
@@ -221,12 +222,12 @@ extension NativeTextView {
         let originX = floor(max(0, (clipWidth - readingColumnWidth) / 2))
         let delta = originX - frame.origin.x
         if abs(delta) > 0.5 {
-            setFrameOrigin(NSPoint(x: originX, y: frame.origin.y))
+            setFrameOrigin(CGPoint(x: originX, y: frame.origin.y))
             repositionWideTableOverlaysForWidthChange(insetDelta: delta)
         }
     }
 
-    override func setFrameSize(_ newSize: NSSize) {
+    override func setFrameSize(_ newSize: CGSize) {
         if isApplyingManagedFrameSize {
             super.setFrameSize(newSize)
             return
@@ -242,7 +243,7 @@ extension NativeTextView {
         if widthChanged {
             pendingFullLayoutMeasure = true   // re-wrap → re-measure height against a full layout
             isApplyingManagedFrameSize = true
-            super.setFrameSize(NSSize(width: newSize.width, height: frame.size.height))
+            super.setFrameSize(CGSize(width: newSize.width, height: frame.size.height))
             isApplyingManagedFrameSize = false
         }
 
@@ -312,7 +313,7 @@ extension NativeTextView {
             } else {
                 return false   // already visible
             }
-            cv.scroll(to: NSPoint(x: cv.bounds.origin.x, y: targetY))
+            cv.scroll(to: CGPoint(x: cv.bounds.origin.x, y: targetY))
             scrollView.reflectScrolledClipView(cv)
             (scrollView as? ClampedScrollView)?.clampToInsets()
             return false
@@ -332,3 +333,5 @@ extension NativeTextView {
         }
     }
 }
+
+#endif

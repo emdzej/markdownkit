@@ -17,7 +17,11 @@
 //  via the ``WikiLinkResolver`` protocol.
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import os
 
@@ -197,8 +201,8 @@ public enum WikiLinkService {
     }
 
     /// Resolve a clicked link's id from the caret's `.wikiLinkID` attribute, else its display string.
-    public static func resolveIdentifier(link: Any, textView: NSTextView, at charIndex: Int) -> String? {
-        if let idAttr = textView.textStorage?.attribute(.wikiLinkID, at: charIndex, effectiveRange: nil) as? String {
+    public static func resolveIdentifier(link: Any, textView: PlatformTextView, at charIndex: Int) -> String? {
+        if let idAttr = textView.mdTextStorage?.attribute(.wikiLinkID, at: charIndex, effectiveRange: nil) as? String {
             return idAttr
         }
         if let name = link as? String {

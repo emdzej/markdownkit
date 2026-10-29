@@ -8,7 +8,7 @@
 
 import Foundation
 import Testing
-@testable import MarkdownEngine
+@testable import MarkdownEngineCore
 
 @Suite("Phase 2.5 — AST pipeline end-to-end")
 struct ASTPipelineTests {

@@ -5,7 +5,11 @@
 //  Ready-made SyntaxHighlighter conformance backed by HighlighterSwift.
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Highlighter
 import MarkdownEngineCore
@@ -33,8 +37,8 @@ public final class HighlighterSwiftBridge: SyntaxHighlighter, @unchecked Sendabl
     private let lightTheme: String
     private let darkTheme: String
     private let autoSwitchAppearance: Bool
-    private let lightBackground: NSColor
-    private let darkBackground: NSColor
+    private let lightBackground: PlatformColor
+    private let darkBackground: PlatformColor
     private let preferredFontNames: [String]
     private var currentTheme: String = ""
 
@@ -58,8 +62,8 @@ public final class HighlighterSwiftBridge: SyntaxHighlighter, @unchecked Sendabl
         lightTheme: String = "atom-one-light",
         darkTheme: String = "atom-one-dark",
         autoSwitchAppearance: Bool = true,
-        lightBackground: NSColor? = NSColor(calibratedWhite: 0.95, alpha: 1.0),
-        darkBackground: NSColor? = NSColor(calibratedWhite: 0.13, alpha: 1.0),
+        lightBackground: PlatformColor? = PlatformColor(white: 0.95, alpha: 1.0),
+        darkBackground: PlatformColor? = PlatformColor(white: 0.13, alpha: 1.0),
         preferredFontNames: [String] = ["SF Mono", "Menlo"]
     ) {
         self.highlighter = Highlighter()
@@ -75,6 +79,8 @@ public final class HighlighterSwiftBridge: SyntaxHighlighter, @unchecked Sendabl
         failedCache.totalCostLimit = 2_000_000
         applyAppearanceTheme()
 
+        #if os(macOS)
+        // On UIKit the editor view posts appearanceDidChangeNotification from traitCollectionDidChange.
         if autoSwitchAppearance {
             DistributedNotificationCenter.default.addObserver(
                 forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
@@ -89,6 +95,7 @@ public final class HighlighterSwiftBridge: SyntaxHighlighter, @unchecked Sendabl
                 )
             }
         }
+        #endif
     }
 
     /// Drops the internal highlight cache. Call after manual theme changes the bridge can't observe.
@@ -110,8 +117,7 @@ public final class HighlighterSwiftBridge: SyntaxHighlighter, @unchecked Sendabl
 
     private func isDarkAppearance() -> Bool {
         guard autoSwitchAppearance else { return false }
-        let appearance = NSApp.keyWindow?.effectiveAppearance ?? NSApp.effectiveAppearance
-        return appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return MarkdownPlatform.isDarkAppearance
     }
 
     // MARK: - SyntaxHighlighter
@@ -120,16 +126,16 @@ public final class HighlighterSwiftBridge: SyntaxHighlighter, @unchecked Sendabl
         autoSwitchAppearance ? .markdownEngineHighlighterDidChangeAppearance : nil
     }
 
-    public func codeFont(size: CGFloat) -> NSFont {
+    public func codeFont(size: CGFloat) -> PlatformFont {
         for name in preferredFontNames {
-            if let font = NSFont(name: name, size: size) {
+            if let font = PlatformFont(name: name, size: size) {
                 return font
             }
         }
         return .monospacedSystemFont(ofSize: size, weight: .regular)
     }
 
-    public func backgroundColor() -> NSColor {
+    public func backgroundColor() -> PlatformColor {
         isDarkAppearance() ? darkBackground : lightBackground
     }
 

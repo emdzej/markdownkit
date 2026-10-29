@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextView+DragSelectBoost.swift
 //  MarkdownEngine
@@ -52,8 +53,10 @@ extension NativeTextView {
         }
 
         let origin = scrollView.contentView.bounds.origin
-        scrollView.contentView.scroll(to: NSPoint(x: origin.x, y: origin.y + dragPolicy.scrollStepPerTick * direction))
+        scrollView.contentView.scroll(to: CGPoint(x: origin.x, y: origin.y + dragPolicy.scrollStepPerTick * direction))
         scrollView.reflectScrolledClipView(scrollView.contentView)
         (scrollView as? ClampedScrollView)?.clampToInsets()
     }
 }
+
+#endif

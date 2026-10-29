@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextView+Placeholder.swift
 //  MarkdownEngine
@@ -23,9 +24,9 @@ final class PlaceholderLabelView: NSView {
     override var isFlipped: Bool { true }
 
     /// Clicks fall through to the text view (focus + caret placement).
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override func hitTest(_ point: CGPoint) -> NSView? { nil }
 
-    override func draw(_ dirtyRect: NSRect) {
+    override func draw(_ dirtyRect: CGRect) {
         attributedText?.draw(
             with: bounds,
             options: [.usesLineFragmentOrigin, .usesFontLeading]
@@ -81,8 +82,8 @@ extension NativeTextView {
     }
 
     /// The text container's content area: where TextKit places the first line.
-    private func placeholderFrame() -> NSRect {
-        NSRect(
+    private func placeholderFrame() -> CGRect {
+        CGRect(
             x: textContainerInset.width,
             y: textContainerInset.height,
             width: max(bounds.width - textContainerInset.width * 2, 0),
@@ -91,11 +92,13 @@ extension NativeTextView {
     }
 }
 
-private extension NSRect {
-    func isApproximatelyEqual(to other: NSRect) -> Bool {
+private extension CGRect {
+    func isApproximatelyEqual(to other: CGRect) -> Bool {
         abs(origin.x - other.origin.x) < 0.5
             && abs(origin.y - other.origin.y) < 0.5
             && abs(size.width - other.size.width) < 0.5
             && abs(size.height - other.size.height) < 0.5
     }
 }
+
+#endif

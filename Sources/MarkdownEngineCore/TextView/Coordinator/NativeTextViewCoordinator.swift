@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextViewCoordinator.swift
 //  MarkdownEngine
@@ -17,7 +18,7 @@ import SwiftUI
 /// construct one directly. Behaviors that don't fit in the main file live
 /// in extensions (Autocorrect, CodeBlocks, Find, InlineSelection,
 /// Notifications, Restyling, TextDelegate, WritingTools).
-public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate {
+public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, ProgrammaticEditTracking {
     var documentId: String?
     /// Remembered scroll offset (`bounds.origin.y`) per `documentId` — saved on
     /// switch-away, restored on switch-back.
@@ -294,3 +295,5 @@ extension NSTextView {
     }
 }
 
+
+#endif

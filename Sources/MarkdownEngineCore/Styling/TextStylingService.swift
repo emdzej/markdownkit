@@ -7,12 +7,16 @@
 
 // Applies base text styling and refreshes only changed sections so editing
 // stays smooth while Markdown formatting updates.
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 struct TextStylingService {
     static func makeBaseTypingAttributes(
-        font: NSFont,
+        font: PlatformFont,
         paragraphStyle: NSParagraphStyle,
         theme: MarkdownEditorTheme = .default
     ) -> [NSAttributedString.Key: Any] {
@@ -28,8 +32,8 @@ struct TextStylingService {
         fontSize: CGFloat,
         layoutBridge: LayoutBridge? = nil,
         configuration: MarkdownEditorConfiguration = .default
-    ) -> (font: NSFont, style: NSMutableParagraphStyle) {
-        let baseFont = NSFont(name: fontName, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
+    ) -> (font: PlatformFont, style: NSMutableParagraphStyle) {
+        let baseFont = PlatformFont(name: fontName, size: fontSize) ?? PlatformFont.systemFont(ofSize: fontSize)
         let defaultLineHeight = layoutBridgeDefaultLineHeight(for: baseFont, using: layoutBridge)
         let paragraph = NSMutableParagraphStyle()
         paragraph.minimumLineHeight = ceil(defaultLineHeight) + configuration.paragraph.lineHeightExtraSpacing
@@ -46,10 +50,10 @@ struct TextStylingService {
     }
 
     static func restyle(
-        textView: NSTextView,
+        textView: PlatformTextView,
         layoutBridge: LayoutBridge?,
         paragraphCandidates: [NSRange],
-        baseFont: NSFont,
+        baseFont: PlatformFont,
         paragraphStyle: NSMutableParagraphStyle,
         caretLocation: Int,
         activeTokenIndices: Set<Int>,
@@ -92,28 +96,28 @@ struct TextStylingService {
             layoutBridge?.removeTemporaryAttribute(.spellingState, forCharacterRange: disabledRange)
         }
 
-        textView.textStorage?.beginEditing()
+        textView.mdTextStorage?.beginEditing()
         for disabledRange in spellingDisabledRanges {
-            textView.textStorage?.addAttribute(.spellingState, value: 0, range: disabledRange)
+            textView.mdTextStorage?.addAttribute(.spellingState, value: 0, range: disabledRange)
         }
         for paragraph in paragraphs {
-            textView.textStorage?.setAttributes([
+            textView.mdTextStorage?.setAttributes([
                 .font: baseFont,
                 .foregroundColor: configuration.theme.bodyText,
                 .paragraphStyle: paragraphStyle
             ], range: paragraph)
-            textView.textStorage?.removeAttribute(.link, range: paragraph)
+            textView.mdTextStorage?.removeAttribute(.link, range: paragraph)
             for (range, attrs) in styledRanges where NSIntersectionRange(range, paragraph).length > 0 {
                 let clippedRange = NSIntersectionRange(range, paragraph)
                 for (key, value) in attrs {
-                    textView.textStorage?.addAttribute(key, value: value, range: clippedRange)
+                    textView.mdTextStorage?.addAttribute(key, value: value, range: clippedRange)
                 }
             }
         }
-        textView.textStorage?.endEditing()
+        textView.mdTextStorage?.endEditing()
         // No ensureLayout here:
         textView.setNeedsDisplay(textView.visibleRect)
-        (textView as? NativeTextView)?.ensureVisibleLayout()
+        (textView as? MarkdownLayoutHost)?.ensureVisibleLayout()
     }
 
     private static func normalize(_ candidates: [NSRange]) -> [NSRange] {

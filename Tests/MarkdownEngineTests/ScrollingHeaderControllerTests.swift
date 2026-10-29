@@ -6,10 +6,14 @@
 //  height, and removal — headless (no window).
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
-@testable import MarkdownEngine
+@testable import MarkdownEngineCore
 
 @MainActor
 @Suite("ScrollingHeaderController")
@@ -22,15 +26,15 @@ struct ScrollingHeaderControllerTests {
         let controller: ScrollingHeaderController
     }
 
-    private func makeStack(viewport: NSSize = NSSize(width: 600, height: 800)) -> Stack {
-        let scrollView = ClampedScrollView(frame: NSRect(origin: .zero, size: viewport))
+    private func makeStack(viewport: CGSize = CGSize(width: 600, height: 800)) -> Stack {
+        let scrollView = ClampedScrollView(frame: CGRect(origin: .zero, size: viewport))
         let textView = NativeTextView(frame: .zero)
         textView.configuration = .default
         textView.autoresizingMask = []
-        let container = NativeTextViewContainer(frame: NSRect(origin: .zero, size: viewport))
+        let container = NativeTextViewContainer(frame: CGRect(origin: .zero, size: viewport))
         container.autoresizingMask = [.width]
         container.textView = textView
-        textView.frame = NSRect(x: 0, y: 0, width: viewport.width, height: 0)
+        textView.frame = CGRect(x: 0, y: 0, width: viewport.width, height: 0)
         container.addSubview(textView)
         scrollView.documentView = container
         return Stack(

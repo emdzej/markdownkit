@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextView+TaskCheckbox.swift
 //  MarkdownEngine
@@ -46,7 +47,7 @@ extension NativeTextView {
         if shouldChangeText(in: effectiveRange, replacementString: replacement) {
             storage.replaceCharacters(in: effectiveRange, with: replacement)
             storage.addAttribute(.taskCheckbox, value: !hitIsChecked, range: effectiveRange)
-            storage.addAttribute(.foregroundColor, value: NSColor.clear, range: effectiveRange)
+            storage.addAttribute(.foregroundColor, value: PlatformColor.clear, range: effectiveRange)
             didChangeText()
             bridge.invalidateDisplay(forCharacterRange: effectiveRange)
             if let coord = delegate as? NativeTextViewCoordinator {
@@ -57,3 +58,5 @@ extension NativeTextView {
         return true
     }
 }
+
+#endif

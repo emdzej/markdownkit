@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextViewCoordinator+Find.swift
 //  MarkdownEngine
@@ -66,7 +67,7 @@ extension NativeTextViewCoordinator {
             // Only scroll when the match is off-screen; reveal it a little below the top.
             if frame.minY < visibleTop || frame.maxY > visibleBottom {
                 let targetY = frame.minY - insetsTop - cv.bounds.height * 0.2
-                cv.scroll(to: NSPoint(x: cv.bounds.origin.x, y: targetY))
+                cv.scroll(to: CGPoint(x: cv.bounds.origin.x, y: targetY))
                 scrollView.reflectScrolledClipView(cv)
                 (scrollView as? ClampedScrollView)?.clampToInsets()
             }
@@ -107,7 +108,7 @@ extension NativeTextViewCoordinator {
                 let newDocY = fragment.layoutFragmentFrame.minY + textViewTop + anchorOffsetFromTop
                 let targetScrollY = newDocY - insetsTop
                 if let cv = scrollView?.contentView, abs(cv.bounds.origin.y - targetScrollY) > 0.5 {
-                    cv.scroll(to: NSPoint(x: cv.bounds.origin.x, y: targetScrollY))
+                    cv.scroll(to: CGPoint(x: cv.bounds.origin.x, y: targetScrollY))
                     scrollView?.reflectScrolledClipView(cv)
                 }
                 return false
@@ -115,3 +116,5 @@ extension NativeTextViewCoordinator {
         }
     }
 }
+
+#endif

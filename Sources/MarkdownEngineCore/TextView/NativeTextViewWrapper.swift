@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextViewWrapper.swift
 //  MarkdownEngine
@@ -165,11 +166,11 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         if let readingWidth = configuration.readingWidth {
             // Fix wrap width at readingWidth so text never re-wraps on resize; only the column's position moves.
             textContainer.widthTracksTextView = false
-            textContainer.size = NSSize(width: readingWidth, height: .greatestFiniteMagnitude)
+            textContainer.size = CGSize(width: readingWidth, height: .greatestFiniteMagnitude)
         } else {
             textContainer.widthTracksTextView = true
         }
-        textView.textContainerInset = NSSize(
+        textView.textContainerInset = CGSize(
             width: configuration.textInsets.horizontal,
             height: configuration.textInsets.vertical
         )
@@ -191,7 +192,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.string = initialState.display
         textView.delegate = context.coordinator
         textView.isVerticallyResizable = true
-        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.maxSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.postsFrameChangedNotifications = true
         // Width and origin are driven by the container document view (see below).
         textView.autoresizingMask = []
@@ -199,7 +200,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         // Body compositing for the scroll-away header (clipsToBounds + redraw policy)
         // is applied by ScrollingHeaderController when a header is first supplied, so
         // header-less embedders keep AppKit's default rendering.
-        let font = NSFont(name: fontName, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
+        let font = PlatformFont(name: fontName, size: fontSize) ?? PlatformFont.systemFont(ofSize: fontSize)
         textView.font = font
         textView.baseFont = font
         textView.allowsUndo = true
@@ -226,19 +227,19 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         // keeps managing its own height; the container offsets it below the header
         // band and sizes itself to the sum.
         let vpSize = scrollView.contentView.bounds.size
-        let container = NativeTextViewContainer(frame: NSRect(origin: .zero, size: vpSize))
+        let container = NativeTextViewContainer(frame: CGRect(origin: .zero, size: vpSize))
         container.autoresizingMask = [.width]
         container.clipsToBounds = true
         container.textView = textView
         let initialWidth = configuration.readingWidth != nil ? textView.readingColumnWidth : vpSize.width
-        textView.frame = NSRect(x: 0, y: 0, width: initialWidth, height: textView.frame.height)
+        textView.frame = CGRect(x: 0, y: 0, width: initialWidth, height: textView.frame.height)
         container.addSubview(textView)
         scrollView.documentView = container
         // Force full-document layout at init so paragraph heights are known
         // upfront; otherwise TextKit 2 viewport layout causes scroll drift.
         textLayoutManager.ensureLayout(for: textLayoutManager.documentRange)
 
-        scrollView.contentView.scroll(to: NSPoint(x: 0, y: -scrollView.contentInsets.top))
+        scrollView.contentView.scroll(to: CGPoint(x: 0, y: -scrollView.contentInsets.top))
         scrollView.clampToInsets()
         scrollView.reflectScrolledClipView(scrollView.contentView)
 
@@ -338,7 +339,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             nsView.autohidesScrollers = configuration.scrollers.autohidesScrollers
         }
         // Reading column centers by POSITION (container subview), so the text inset is constant.
-        let desiredTextInset = NSSize(
+        let desiredTextInset = CGSize(
             width: configuration.textInsets.horizontal,
             height: configuration.textInsets.vertical
         )
@@ -409,12 +410,12 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             textView.removeAllWideTableOverlays()
             // Park at top during the rebuild; the new document's own saved offset
             // (if any) is restored after its height is known (see below).
-            nsView.contentView.scroll(to: NSPoint(x: 0, y: -nsView.contentInsets.top))
+            nsView.contentView.scroll(to: CGPoint(x: 0, y: -nsView.contentInsets.top))
             nsView.reflectScrolledClipView(nsView.contentView)
             (nsView as? ClampedScrollView)?.clampToInsets()
         }
 
-        let font = NSFont(name: fontName, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
+        let font = PlatformFont(name: fontName, size: fontSize) ?? PlatformFont.systemFont(ofSize: fontSize)
         textView.font = font
         textView.baseFont = font
         textView.recalcOverscroll(for: nsView)
@@ -434,7 +435,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         // Height is measured now, so restore the saved offset; clampToInsets keeps
         // it in range if the document got shorter.
         if isNodeSwitch, let savedY = context.coordinator.scrollOffsets[documentId] {
-            nsView.contentView.scroll(to: NSPoint(x: nsView.contentView.bounds.origin.x, y: savedY))
+            nsView.contentView.scroll(to: CGPoint(x: nsView.contentView.bounds.origin.x, y: savedY))
             nsView.reflectScrolledClipView(nsView.contentView)
             (nsView as? ClampedScrollView)?.clampToInsets()
         }
@@ -498,3 +499,5 @@ private extension NativeTextViewWrapper {
         )
     }
 }
+
+#endif

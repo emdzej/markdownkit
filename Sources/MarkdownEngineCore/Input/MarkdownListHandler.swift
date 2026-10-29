@@ -7,24 +7,21 @@
 
 // Makes list editing feel natural by continuing items, handling indentation,
 // and applying spacing/alignment that keeps lists easy to read.
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 
 struct MarkdownLists {
-    static func performEdit(_ textView: NSTextView, replace range: NSRange, with string: String) {
+    static func performEdit(_ textView: PlatformTextView, replace range: NSRange, with string: String) {
         let ns = textView.string as NSString
         let loc = min(range.location, ns.length)
         let maxLen = ns.length - loc
         let len = min(range.length, max(0, maxLen))
         let safeRange = NSRange(location: loc, length: len)
 
-        if let coord = textView.delegate as? NativeTextViewWrapper.Coordinator { coord.isProgrammaticEdit = true }
-        defer {
-            if let coord = textView.delegate as? NativeTextViewWrapper.Coordinator { coord.isProgrammaticEdit = false }
-        }
-
-        guard textView.shouldChangeText(in: safeRange, replacementString: string) else { return }
-        textView.textStorage?.replaceCharacters(in: safeRange, with: string)
-        textView.didChangeText()
+        textView.mdReplace(safeRange, with: string)
     }
 
     // Markers: `-`/`*`/`+` (raw Markdown) + legacy `•` (rendered, never typed).
@@ -49,7 +46,7 @@ struct MarkdownLists {
 
     /// Remove the current line's leading marker and put the caret at line start (exit empty block on Enter).
     private static func removeLinePrefixAndExit(
-        textView: NSTextView,
+        textView: PlatformTextView,
         currentLineRange: NSRange,
         prefixLength: Int
     ) -> Bool {
@@ -87,7 +84,7 @@ struct MarkdownLists {
 
     // MARK: - Input Handling
 
-    static func handleInsertion(textView: NSTextView, affectedCharRange: NSRange, replacementString: String?) -> Bool {
+    static func handleInsertion(textView: PlatformTextView, affectedCharRange: NSRange, replacementString: String?) -> Bool {
         guard let replacementString = replacementString else { return true }
 
         // Fast path: skip the expensive isInsideCodeBlock scan for ordinary typing.
@@ -98,7 +95,7 @@ struct MarkdownLists {
             return true
         }
 
-        let activeConfig = (textView as? NativeTextView)?.configuration ?? .default
+        let activeConfig = (textView as? MarkdownLayoutHost)?.configuration ?? .default
         let listsEnabled = activeConfig.lists.helpersEnabled
         let autoClosePairsEnabled = activeConfig.lists.autoClosePairsEnabled
 

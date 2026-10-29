@@ -13,7 +13,11 @@
 //  override individual fields without forking the engine.
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 // MARK: - Top-level Configuration

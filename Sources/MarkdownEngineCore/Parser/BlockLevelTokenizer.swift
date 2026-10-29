@@ -8,7 +8,7 @@
 //  (`InlineParser` → `InlineASTAdapter`); this only covers block-level kinds.
 //
 //  Token shapes are reproduced 1:1 from the old regex tokenizer so every
-//  downstream consumer (ContextMenu, code/LaTeX detection, the NSImage render
+//  downstream consumer (ContextMenu, code/LaTeX detection, the PlatformImage render
 //  passes) sees identical tokens. A parity check pins that during the swap.
 //
 

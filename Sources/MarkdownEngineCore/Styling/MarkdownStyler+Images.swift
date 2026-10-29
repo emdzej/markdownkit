@@ -7,7 +7,11 @@
 //  Image embed (`![[...]]`) styling and layout.
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 extension MarkdownStyler {
@@ -49,7 +53,7 @@ extension MarkdownStyler {
             let imageEmbedConfig = ctx.configuration.imageEmbed
             let maxWidth: CGFloat = {
                 if let tc = ctx.layoutBridge?.firstTextContainer {
-                    let w = tc.containerSize.width - tc.lineFragmentPadding * 2
+                    let w = tc.size.width - tc.lineFragmentPadding * 2
                     if w > 0 && w < imageEmbedConfig.unreasonableMaxWidth { return w }
                 }
                 return imageEmbedConfig.fallbackMaxWidth
@@ -97,7 +101,7 @@ extension MarkdownStyler {
                     // range and stays visible unless we collapse it too.
                     let urlText = ctx.nsText.substring(with: urlRange)
                     attrs.append((urlRange, [
-                        .foregroundColor: NSColor.clear,
+                        .foregroundColor: PlatformColor.clear,
                         .font: ctx.latexMarkerFont,
                         .kern: -HeadingHelpers.textWidth(urlText, font: ctx.latexMarkerFont)
                     ]))
@@ -129,7 +133,7 @@ extension MarkdownStyler {
                 // Determine max width from text container
                 let maxWidth: CGFloat = {
                     if let tc = ctx.layoutBridge?.firstTextContainer {
-                        let w = tc.containerSize.width - tc.lineFragmentPadding * 2
+                        let w = tc.size.width - tc.lineFragmentPadding * 2
                         if w > 0 && w < imageEmbedConfig.unreasonableMaxWidth { return w }
                     }
                     return imageEmbedConfig.fallbackMaxWidth

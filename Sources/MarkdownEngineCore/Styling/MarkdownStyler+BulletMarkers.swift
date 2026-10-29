@@ -7,7 +7,11 @@
 //  only reports caret membership so the coordinator can restyle on crossings.
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 extension MarkdownStyler {

@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ClampedScrollView.swift
 //  MarkdownEngine
@@ -25,7 +26,7 @@ final class ClampedScrollView: NSScrollView {
     override func viewDidEndLiveResize() {
         super.viewDidEndLiveResize()
         if let y = scrollYBeforeLiveResize {
-            contentView.scroll(to: NSPoint(x: contentView.bounds.origin.x, y: y))
+            contentView.scroll(to: CGPoint(x: contentView.bounds.origin.x, y: y))
             reflectScrolledClipView(contentView)
             clampToInsets()
         }
@@ -58,8 +59,10 @@ final class ClampedScrollView: NSScrollView {
         let maxY = max(minY, realHeight - contentView.bounds.height)
         let clampedY = min(max(b.origin.y, minY), maxY)
         if clampedY != b.origin.y {
-            contentView.scroll(to: NSPoint(x: b.origin.x, y: clampedY))
+            contentView.scroll(to: CGPoint(x: b.origin.x, y: clampedY))
             reflectScrolledClipView(contentView)
         }
     }
 }
+
+#endif

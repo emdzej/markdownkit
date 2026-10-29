@@ -6,9 +6,13 @@
 //  composition, and reading-column centering — headless (no window).
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Testing
-@testable import MarkdownEngine
+@testable import MarkdownEngineCore
 
 @MainActor
 @Suite("NativeTextViewContainer stacking")
@@ -24,20 +28,20 @@ struct NativeTextViewContainerTests {
     }
 
     private func makeStack(
-        viewport: NSSize = NSSize(width: 600, height: 800),
+        viewport: CGSize = CGSize(width: 600, height: 800),
         readingWidth: CGFloat? = nil
     ) -> Stack {
-        let scrollView = ClampedScrollView(frame: NSRect(origin: .zero, size: viewport))
+        let scrollView = ClampedScrollView(frame: CGRect(origin: .zero, size: viewport))
         let textView = NativeTextView(frame: .zero)
         var config = MarkdownEditorConfiguration.default
         config.readingWidth = readingWidth
         textView.configuration = config
         textView.autoresizingMask = []
-        let container = NativeTextViewContainer(frame: NSRect(origin: .zero, size: viewport))
+        let container = NativeTextViewContainer(frame: CGRect(origin: .zero, size: viewport))
         container.autoresizingMask = [.width]
         container.textView = textView
         let initialWidth = readingWidth != nil ? textView.readingColumnWidth : viewport.width
-        textView.frame = NSRect(x: 0, y: 0, width: initialWidth, height: 0)
+        textView.frame = CGRect(x: 0, y: 0, width: initialWidth, height: 0)
         container.addSubview(textView)
         scrollView.documentView = container
         return Stack(scrollView: scrollView, container: container, textView: textView)
@@ -70,7 +74,7 @@ struct NativeTextViewContainerTests {
         // under-filling height (bypassing the managed inflation) — the container
         // must still span the viewport so there's no dead band below the body.
         stack.textView.isApplyingManagedFrameSize = true
-        stack.textView.setFrameSize(NSSize(width: 600, height: 100))
+        stack.textView.setFrameSize(CGSize(width: 600, height: 100))
         stack.textView.isApplyingManagedFrameSize = false
         stack.container.textViewDidResize()
 
@@ -112,7 +116,7 @@ struct NativeTextViewContainerTests {
         stack.textView.applyManagedFrameSize(width: 600)
         stack.textView.centerReadingColumn(forClipWidth: 600)
 
-        stack.container.setFrameSize(NSSize(width: 1000, height: stack.container.frame.height))
+        stack.container.setFrameSize(CGSize(width: 1000, height: stack.container.frame.height))
 
         let expectedX = floor((1000 - stack.textView.readingColumnWidth) / 2)
         #expect(stack.textView.frame.origin.x == expectedX)
@@ -149,7 +153,7 @@ struct NativeTextViewContainerTests {
         stack.textView.baseContentHeight = 900
         stack.textView.applyManagedFrameSize(width: 600)
 
-        stack.container.setFrameSize(NSSize(width: 1000, height: stack.container.frame.height))
+        stack.container.setFrameSize(CGSize(width: 1000, height: stack.container.frame.height))
 
         #expect(stack.textView.frame.width == 1000)
         #expect(stack.textView.frame.origin.x == 0)

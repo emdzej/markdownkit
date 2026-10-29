@@ -6,22 +6,26 @@
 //  of overwriting them (the flat 18-pass styler's flaw).
 //
 
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
-@testable import MarkdownEngine
+@testable import MarkdownEngineCore
 
 @Suite("Phase 2.5b — AST styler font composition")
 struct MarkdownASTStylerTests {
 
     private let base: CGFloat = 14
-    private var fontName: String { NSFont.systemFont(ofSize: 14).fontName }
+    private var fontName: String { PlatformFont.systemFont(ofSize: 14).fontName }
 
     /// Effective font at `pos`: the last styled range covering it that sets `.font`.
-    private func font(in attrs: [StyledRange], at pos: Int) -> NSFont? {
-        var result: NSFont?
+    private func font(in attrs: [StyledRange], at pos: Int) -> PlatformFont? {
+        var result: PlatformFont?
         for (range, a) in attrs where NSLocationInRange(pos, range) {
-            if let f = a[.font] as? NSFont { result = f }
+            if let f = a[.font] as? PlatformFont { result = f }
         }
         return result
     }

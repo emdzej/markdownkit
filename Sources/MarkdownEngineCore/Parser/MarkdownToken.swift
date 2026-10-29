@@ -7,7 +7,11 @@
 
 // Defines the basic Markdown building blocks the editor works with (bold,
 // links, code, LaTeX, etc.), plus shared text attributes.
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 extension NSAttributedString.Key {

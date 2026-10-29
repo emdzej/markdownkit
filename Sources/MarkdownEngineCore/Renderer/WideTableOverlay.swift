@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  WideTableOverlay.swift
 //  MarkdownEngine
@@ -13,7 +14,7 @@ import AppKit
 
 /// Legacy scroller with a fainter knob.
 final class SubtleScroller: NSScroller {
-    override func drawKnobSlot(in slot: NSRect, highlight: Bool) {
+    override func drawKnobSlot(in slot: CGRect, highlight: Bool) {
         // Transparent track — only the knob is drawn.
     }
 
@@ -22,8 +23,8 @@ final class SubtleScroller: NSScroller {
         guard knob.width > 1, knob.height > 1 else { return }
         let thickness: CGFloat = 5
         let pill = knob.insetBy(dx: 2, dy: max(0, (knob.height - thickness) / 2))
-        NSColor.secondaryLabelColor.withAlphaComponent(0.3).setFill()   // ← faintness; tweak here
-        NSBezierPath(roundedRect: pill, xRadius: pill.height / 2, yRadius: pill.height / 2).fill()
+        PlatformColor.secondaryLabelColor.withAlphaComponent(0.3).setFill()   // ← faintness; tweak here
+        PlatformBezierPath(roundedRect: pill, xRadius: pill.height / 2, yRadius: pill.height / 2).fill()
     }
 }
 
@@ -50,7 +51,7 @@ final class WideTableOverlay: NSScrollView {
 
     private let tableImageView: WideTableImageView
 
-    init(sourceID: Int, image: NSImage, ownerTextView: NativeTextView, anchorLocation: Int) {
+    init(sourceID: Int, image: PlatformImage, ownerTextView: NativeTextView, anchorLocation: Int) {
         self.sourceID = sourceID
         self.anchorTextLocation = anchorLocation
         self.ownerTextView = ownerTextView
@@ -100,7 +101,7 @@ final class WideTableOverlay: NSScrollView {
         super.tile()
         let origin = contentView.bounds.origin
         if origin.y != 0 {
-            contentView.scroll(to: NSPoint(x: origin.x, y: 0))
+            contentView.scroll(to: CGPoint(x: origin.x, y: 0))
             reflectScrolledClipView(contentView)
         }
     }
@@ -119,7 +120,7 @@ final class WideTableOverlay: NSScrollView {
 
 
     /// Swap the rendered image after a restyle regenerated it.
-    func updateImage(_ image: NSImage) {
+    func updateImage(_ image: PlatformImage) {
         if tableImageView.image !== image {
             tableImageView.image = image
             tableImageView.frame = CGRect(origin: .zero, size: image.size)
@@ -129,7 +130,7 @@ final class WideTableOverlay: NSScrollView {
     var horizontalOffset: CGFloat {
         get { contentView.bounds.origin.x }
         set {
-            contentView.scroll(to: NSPoint(x: max(0, newValue), y: 0))
+            contentView.scroll(to: CGPoint(x: max(0, newValue), y: 0))
             reflectScrolledClipView(contentView)
         }
     }
@@ -248,7 +249,7 @@ extension NativeTextView {
 
         storage.enumerateAttribute(.scrollableBlockSourceID, in: fullRange, options: []) { value, attrRange, _ in
             guard let sourceID = value as? Int,
-                  let image = storage.attribute(.latexImage, at: attrRange.location, effectiveRange: nil) as? NSImage else { return }
+                  let image = storage.attribute(.latexImage, at: attrRange.location, effectiveRange: nil) as? PlatformImage else { return }
             seenSourceIDs.insert(sourceID)
 
             if let start = tcs.location(tcs.documentRange.location, offsetBy: attrRange.location),
@@ -265,9 +266,9 @@ extension NativeTextView {
             // offset and the text view's Y offset (the scroll-away header band).
             let columnLeft = (breakout ? frame.origin.x : 0) + textContainerOrigin.x + anchorRect.minX
             let breakoutTop = frame.origin.y + textContainerOrigin.y + anchorRect.minY
-            let overlayFrame: NSRect = breakout
-                ? NSRect(x: 0, y: breakoutTop, width: viewWidth, height: totalHeight)
-                : NSRect(x: columnLeft, y: textContainerOrigin.y + anchorRect.minY, width: containerWidth, height: totalHeight)
+            let overlayFrame: CGRect = breakout
+                ? CGRect(x: 0, y: breakoutTop, width: viewWidth, height: totalHeight)
+                : CGRect(x: columnLeft, y: textContainerOrigin.y + anchorRect.minY, width: containerWidth, height: totalHeight)
             // Breakout: table starts at the text column's left edge; the left margin is scrollable space.
             let leftContentInset: CGFloat = breakout ? max(0, columnLeft) : 0
 
@@ -308,3 +309,5 @@ extension NativeTextView {
         wideTableOverlays.removeAll()
     }
 }
+
+#endif

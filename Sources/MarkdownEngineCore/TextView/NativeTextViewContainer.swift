@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NativeTextViewContainer.swift
 //  MarkdownEngine
@@ -75,7 +76,7 @@ final class NativeTextViewContainer: NSView {
                 // (and shift the wide-table overlay insets) instead of resizing.
                 textView.centerReadingColumn(forClipWidth: w)
             } else if abs(textView.frame.width - w) > 0.5 {
-                textView.setFrameSize(NSSize(width: w, height: textView.frame.height))
+                textView.setFrameSize(CGSize(width: w, height: textView.frame.height))
             }
         }
         // Y: below the header band. X is owned by the reading-column centering
@@ -83,7 +84,7 @@ final class NativeTextViewContainer: NSView {
         let x = textView.configuration.readingWidth != nil ? textView.frame.origin.x : 0
         if abs(textView.frame.origin.y - headerHeight) > 0.01 || abs(textView.frame.origin.x - x) > 0.01 {
             let deltaY = headerHeight - textView.frame.origin.y
-            textView.setFrameOrigin(NSPoint(x: x, y: headerHeight))
+            textView.setFrameOrigin(CGPoint(x: x, y: headerHeight))
             // Breakout wide-table overlays are siblings whose frames bake in the
             // text view's offset — keep them glued to their anchor paragraphs.
             textView.shiftWideTableOverlays(byY: deltaY)
@@ -91,7 +92,7 @@ final class NativeTextViewContainer: NSView {
         let viewportH = enclosingScrollView?.contentView.bounds.height ?? 0
         let totalH = max(headerHeight + textView.frame.height, viewportH)
         if abs(frame.height - totalH) > 0.5 {
-            setFrameSize(NSSize(width: w, height: totalH))
+            setFrameSize(CGSize(width: w, height: totalH))
         }
     }
 
@@ -101,7 +102,7 @@ final class NativeTextViewContainer: NSView {
         restack(propagateWidth: false)
     }
 
-    override func setFrameSize(_ newSize: NSSize) {
+    override func setFrameSize(_ newSize: CGSize) {
         super.setFrameSize(newSize)
         // Width came from the scroll view's clip view (autoresizing); propagate it.
         restack(propagateWidth: true)
@@ -114,3 +115,5 @@ extension NSScrollView {
         (documentView as? NativeTextViewContainer)?.textView
     }
 }
+
+#endif
