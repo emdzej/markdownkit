@@ -85,6 +85,8 @@ public enum MarkdownFormulas {
         var results: [FormulaResult] = []
         /// Body / header line start (UTF-16) → column index → result.
         var cellsByLine: [Int: [Int: FormulaResult]] = [:]
+        /// Source ranges of the tables that contain formula links.
+        var formulaTableRanges: [NSRange] = []
 
         static func make(_ document: String, options: Options) -> Evaluation {
             let evaluation = Evaluation()
@@ -116,6 +118,7 @@ public enum MarkdownFormulas {
             struct Cell { let line: Int; let column: Int; let start: Int; let content: String }
             var sheets: [FormulaWorkbook.Sheet] = []
             var sheetCells: [[[Cell]]] = []
+            var sheetRanges: [NSRange] = []
             for block in blocks {
                 guard isDelimiter(lines[block[1]].text), block.count > 2 else { continue }
                 var name = "Sheet\(sheets.count)"
@@ -136,10 +139,14 @@ public enum MarkdownFormulas {
                     }
                 }))
                 sheetCells.append(rows)
+                let first = lines[block[0]], last = lines[block[block.count - 1]]
+                sheetRanges.append(NSRange(location: first.start, length: last.start + (last.text as NSString).length - first.start))
             }
 
             let evaluator = FormulaEvaluator(workbook: FormulaWorkbook(sheets: sheets), precisionRounding: options.precisionRounding)
             for (s, rows) in sheetCells.enumerated() {
+                let before = evaluation.results.count
+                defer { if evaluation.results.count > before { evaluation.formulaTableRanges.append(sheetRanges[s]) } }
                 for (r, row) in rows.enumerated() {
                     for (c, cell) in row.enumerated() {
                         guard let match = MarkdownFormulas.linkMatch(in: cell.content),
@@ -225,19 +232,12 @@ public enum MarkdownFormulas {
         return evaluation
     }
 
-    /// Paragraph ranges of tables with formula links, other than the one at `edited`:
+    /// Ranges of tables with formula links other than the one at `edited`:
     /// their values may depend on the edited table.
     static func dependentTableParagraphs(in document: String, excluding edited: NSRange) -> [NSRange] {
         let ns = document as NSString
-        var ranges: [NSRange] = []
-        for result in cachedEvaluation(for: document).results where NSIntersectionRange(result.range, edited).length == 0 && !NSLocationInRange(result.range.location, edited) {
-            let paragraph = ns.paragraphRange(for: result.range)
-            if ranges.last.map({ NSIntersectionRange($0, paragraph).length > 0 || NSMaxRange($0) == paragraph.location }) == true {
-                ranges[ranges.count - 1] = NSUnionRange(ranges[ranges.count - 1], paragraph)
-            } else {
-                ranges.append(paragraph)
-            }
-        }
-        return ranges
+        return cachedEvaluation(for: document).formulaTableRanges
+            .filter { NSIntersectionRange($0, edited).length == 0 && !NSLocationInRange($0.location, edited) }
+            .map { ns.paragraphRange(for: $0) }
     }
 }

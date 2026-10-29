@@ -63,10 +63,16 @@ extension MarkdownStyler {
             }
 
             let theme = ctx.configuration.theme
+            // Formula links show their value; the cell editor still shows the source.
+            let formulas = formulaResults(for: table, at: token.range, ctx: ctx)
             let cells = ([table.header] + table.rows).enumerated().map { row, rowCells in
-                rowCells.map {
-                    formattedCellString(
-                        $0, baseFont: ctx.baseFont, header: row == 0, theme: theme,
+                rowCells.enumerated().map { column, raw in
+                    if let result = formulas[row][column] {
+                        return formulaCellString(raw, result: result, baseFont: ctx.baseFont, theme: theme,
+                                                 codeBackgroundColor: ctx.codeBackgroundColor, latex: ctx.services.latex)
+                    }
+                    return formattedCellString(
+                        raw, baseFont: ctx.baseFont, header: row == 0, theme: theme,
                         codeBackgroundColor: ctx.codeBackgroundColor, latex: ctx.services.latex
                     )
                 }
@@ -109,11 +115,68 @@ extension MarkdownStyler {
                 attrs: &attrs
             )
             if rendered {
-                let info = TableRenderInfo(table: table, sourceRange: token.range, layout: layout, image: image, availableWidth: availableWidth)
+                let info = TableRenderInfo(table: table, sourceRange: token.range, layout: layout, image: image, availableWidth: availableWidth,
+                                           formulas: formulas.map { $0.map { $0?.formula } })
                 attrs.append((token.range, [.tableRenderInfo: info]))
             }
         }
         return attrs
+    }
+
+    // MARK: - Formulas
+
+    /// The evaluated formula of each cell (row 0 = header), matched to the
+    /// table's source lines: body row i is the table's line i + 2.
+    static func formulaResults(for table: MarkdownTable, at range: NSRange, ctx: StylingContext) -> [[MarkdownFormulas.FormulaResult?]] {
+        var grid = Array(repeating: Array(repeating: MarkdownFormulas.FormulaResult?.none, count: table.columnCount), count: table.rowCount)
+        let source = ctx.nsText.substring(with: range)
+        guard source.contains("](#") else { return grid }
+        let evaluation = MarkdownFormulas.cachedEvaluation(for: ctx.nsText as String)
+        var lineStarts: [Int] = []
+        var location = range.location
+        while location < NSMaxRange(range) {
+            lineStarts.append(location)
+            let line = ctx.nsText.lineRange(for: NSRange(location: location, length: 0))
+            guard NSMaxRange(line) > location else { break }
+            location = NSMaxRange(line)
+        }
+        for row in 0..<table.rowCount {
+            // Header (line 0), delimiter (1), body rows from line 2.
+            let lineIndex = row == 0 ? 0 : row + 1
+            guard lineIndex < lineStarts.count, let cells = evaluation.cellsByLine[lineStarts[lineIndex]] else { continue }
+            for (column, result) in cells where column < table.columnCount {
+                grid[row][column] = result
+            }
+        }
+        return grid
+    }
+
+    /// A formula cell: its text with the formula link replaced by the value,
+    /// tinted with the link color (errors in red).
+    static func formulaCellString(
+        _ raw: String,
+        result: MarkdownFormulas.FormulaResult,
+        baseFont: PlatformFont,
+        theme: MarkdownEditorTheme,
+        codeBackgroundColor: PlatformColor,
+        latex: any LatexRenderer
+    ) -> NSAttributedString {
+        let out = NSMutableAttributedString()
+        guard let match = MarkdownFormulas.linkMatch(in: raw) else {
+            return formattedCellString(raw, baseFont: baseFont, header: false, theme: theme, codeBackgroundColor: codeBackgroundColor, latex: latex)
+        }
+        let ns = raw as NSString
+        let before = ns.substring(to: match.range.location)
+        let after = ns.substring(from: NSMaxRange(match.range))
+        if !before.isEmpty {
+            out.append(formattedCellString(before, baseFont: baseFont, header: false, theme: theme, codeBackgroundColor: codeBackgroundColor, latex: latex))
+        }
+        let color: PlatformColor = result.isError ? PlatformColor.systemRed.withAlphaComponent(0.85) : theme.link
+        out.append(NSAttributedString(string: result.value, attributes: [.font: baseFont, .foregroundColor: color]))
+        if !after.isEmpty {
+            out.append(formattedCellString(after, baseFont: baseFont, header: false, theme: theme, codeBackgroundColor: codeBackgroundColor, latex: latex))
+        }
+        return out
     }
 
     // MARK: - Inline-formatted cell strings

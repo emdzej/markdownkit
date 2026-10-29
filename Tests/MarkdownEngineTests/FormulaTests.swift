@@ -226,3 +226,77 @@ struct FormulaEvaluatorTests {
         #expect(FormulaEvaluator.format(1e21) == "1e+21")
     }
 }
+
+#if os(macOS)
+import AppKit
+#endif
+
+@Suite("Formulas: rendering")
+struct FormulaRenderingTests {
+
+    private func styled(_ text: String, caret: Int, mode: RenderingMode = .formatted) -> [StyledRange] {
+        #if os(macOS)
+        _ = NSApplication.shared
+        #endif
+        var configuration = MarkdownEditorConfiguration.default
+        configuration.renderingMode = mode
+        let tokens = MarkdownTokenizer.parseTokensViaAST(in: text)
+        let active = MarkdownDetection.computeActiveTokenIndices(
+            selectionRange: NSRange(location: caret, length: 0), tokens: tokens, in: text as NSString)
+        return MarkdownStyler.styleAttributes(
+            text: text, fontName: "Helvetica", fontSize: 14,
+            caretLocation: caret, activeTokenIndices: active,
+            precomputedTokens: tokens, configuration: configuration
+        )
+    }
+
+    @Test func gridCellsShowValuesAndKeepTheirFormulas() throws {
+        let doc = table1 + "\nEnd\n"
+        let attrs = styled(doc, caret: (doc as NSString).length)
+        let info = try #require(attrs.lazy.compactMap { $0.1[.tableRenderInfo] as? TableRenderInfo }.first)
+        // Body rows 3–5 (grid rows 3…5), column C.
+        #expect(info.formula(row: 3, column: 2) == "SUM(C1:C2)")
+        #expect(info.formula(row: 4, column: 2) == "C1*C2")
+        #expect(info.formula(row: 5, column: 2) == "AVERAGE(C1:C2)")
+        #expect(info.formula(row: 1, column: 2) == nil)
+        // The `#SUM(C1:C2)` text in column B is just text.
+        #expect(info.formula(row: 3, column: 1) == nil)
+        // The model (what the cell editor shows) keeps the link.
+        #expect(info.table.rows[2][2] == "[?](#SUM(C1:C2))")
+    }
+
+    @Test func cellStringReplacesOnlyTheLink() {
+        let result = MarkdownFormulas.FormulaResult(range: NSRange(), formula: "1+1", value: "2", isError: false, sheet: "Sheet0", cell: "A1")
+        let string = MarkdownStyler.formulaCellString(
+            "Total: [?](#1+1) €", result: result, baseFont: .systemFont(ofSize: 14),
+            theme: .default, codeBackgroundColor: .clear, latex: MarkdownEditorConfiguration.default.services.latex)
+        #expect(string.string == "Total: 2 €")
+        let error = MarkdownFormulas.FormulaResult(range: NSRange(), formula: "1/0", value: "#DIV/0!", isError: true, sheet: "Sheet0", cell: "A1")
+        let errorString = MarkdownStyler.formulaCellString(
+            "[?](#1/0)", result: error, baseFont: .systemFont(ofSize: 14),
+            theme: .default, codeBackgroundColor: .clear, latex: MarkdownEditorConfiguration.default.services.latex)
+        #expect(errorString.string == "#DIV/0!")
+    }
+
+    @Test func otherFormulaTablesAreRestyledAfterAnEdit() {
+        let doc = table1 + "\n<!-- table2 -->\n| n | v |\n| - | - |\n| s | [?](#table1!C3) |\n\n| plain |\n| - |\n| 1 |\n"
+        let ns = doc as NSString
+        let first = ns.range(of: "| name")
+        let dependents = MarkdownFormulas.dependentTableParagraphs(in: doc, excluding: NSRange(location: first.location, length: 10))
+        #expect(dependents.count == 1)
+        #expect(ns.substring(with: dependents[0]).contains("table1!C3"))
+    }
+
+    @Test func sourceModeColorsFormulaDestinations() throws {
+        let doc = "| a |\n| - |\n| [?](#SUM(A1:A2)) |\n| [x](#intro) |\n"
+        let attrs = styled(doc, caret: 0, mode: .source)
+        let ns = doc as NSString
+        let formula = ns.range(of: "SUM(A1:A2)")
+        let anchor = ns.range(of: "intro")
+        let color = { (location: Int) in
+            attrs.last { NSLocationInRange(location, $0.range) && $0.attributes[.foregroundColor] != nil }?.attributes[.foregroundColor] as? PlatformColor
+        }
+        #expect(color(formula.location) == SourceModeStyle.default.codeColor)
+        #expect(color(anchor.location) != SourceModeStyle.default.codeColor)
+    }
+}

@@ -154,6 +154,32 @@ enum MarkdownSourceStyler {
             if lineIndex == 0 {
                 attrs.append((trimmedLine(line, ns), [.font: adding(.bold, to: ctx.font)]))
             }
+            styleFormulaLinks(in: trimmedLine(line, ns), ctx: ctx, into: &attrs)
+        }
+    }
+
+    /// `[?](#SUM(C1:C2))` cells (MarkdownFormulas): link syntax muted, the formula in the code color.
+    private static func styleFormulaLinks(in line: NSRange, ctx: Ctx, into attrs: inout [StyledRange]) {
+        let ns = ctx.ns
+        guard ns.substring(with: line).contains("](#") else { return }
+        var cellStart = line.location
+        var i = line.location
+        while i <= NSMaxRange(line) {
+            let atEnd = i == NSMaxRange(line)
+            if !atEnd, ns.character(at: i) == 0x5C { i += 2; continue }     // escaped
+            if atEnd || ns.character(at: i) == 0x7C {
+                let cell = NSRange(location: cellStart, length: i - cellStart)
+                if cell.length > 0, let match = MarkdownFormulas.linkMatch(in: ns.substring(with: cell)),
+                   MarkdownFormulas.isFormula(match.formula) {
+                    let link = NSRange(location: cell.location + match.range.location, length: match.range.length)
+                    let formulaLength = (match.formula as NSString).length
+                    let formula = NSRange(location: NSMaxRange(link) - 1 - formulaLength, length: formulaLength)
+                    attrs.append((link, ctx.muted))
+                    attrs.append((formula, [.foregroundColor: ctx.style.codeColor, .spellingState: 0]))
+                }
+                cellStart = i + 1
+            }
+            i += 1
         }
     }
 
@@ -221,7 +247,14 @@ enum MarkdownSourceStyler {
         for (i, marker) in markers.enumerated() {
             attrs.append((marker, i == 4 ? [.foregroundColor: ctx.style.attributeColor, .spellingState: 0] : ctx.muted))
         }
-        if url.length > 0 { attrs.append((url, [.foregroundColor: ctx.theme.mutedText, .spellingState: 0])) }
+        guard url.length > 0 else { return }
+        // `#SUM(C1:C2)`: a table formula (MarkdownFormulas), shown in the code color.
+        let destination = ctx.ns.substring(with: url)
+        if destination.hasPrefix("#"), MarkdownFormulas.isFormula(String(destination.dropFirst())) {
+            attrs.append((url, [.foregroundColor: ctx.style.codeColor, .spellingState: 0]))
+        } else {
+            attrs.append((url, [.foregroundColor: ctx.theme.mutedText, .spellingState: 0]))
+        }
     }
 
     // MARK: Helpers

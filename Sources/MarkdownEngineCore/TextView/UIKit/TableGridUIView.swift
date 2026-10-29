@@ -275,7 +275,8 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
 
     private func tableWithFieldValue() -> MarkdownTable {
         var table = info.table
-        if let field, let cell = editingCell { table[cell.row, cell.column] = field.text ?? "" }
+        // A typed `=SUM(A1:A2)` becomes the formula link `[?](#SUM(A1:A2))`.
+        if let field, let cell = editingCell { table[cell.row, cell.column] = MarkdownFormulas.cellSource(fromTyped: field.text ?? "") }
         return table
     }
 

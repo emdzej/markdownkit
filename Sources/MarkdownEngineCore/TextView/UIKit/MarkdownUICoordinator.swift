@@ -295,7 +295,9 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         textChanged(tv)
         let ns = tv.string as NSString
         guard NSMaxRange(range) <= ns.length else { return }
-        restyle(tv, paragraphs: [ns.paragraphRange(for: range)], tokens: tokens(for: tv.string))
+        // Formulas in other tables may read the edited one.
+        let dependents = MarkdownFormulas.dependentTableParagraphs(in: tv.string, excluding: range)
+        restyle(tv, paragraphs: [ns.paragraphRange(for: range)] + dependents, tokens: tokens(for: tv.string))
     }
 
     /// Shows the table starting at `location` as raw markdown with the caret in it.
