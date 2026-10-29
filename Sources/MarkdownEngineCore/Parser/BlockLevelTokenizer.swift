@@ -151,7 +151,14 @@ enum BlockLevelTokenizer {
                     var cursor = afterSep
                     while cursor < len {
                         let (cEnd, cNext) = line(in: s, from: cursor)
-                        guard isTableRow(s, cursor, cEnd) else { break }
+                        guard isTableRow(s, cursor, cEnd) else {
+                            // `{cols="…"}` directly below belongs to the table.
+                            if MarkdownTable.attributeLine(s.substring(with: NSRange(location: cursor, length: cEnd - cursor))) != nil {
+                                rowEnd = cEnd
+                                cursor = cNext > cursor ? cNext : cEnd
+                            }
+                            break
+                        }
                         rowEnd = cEnd
                         if cNext <= cursor { cursor = cEnd; break }
                         cursor = cNext
