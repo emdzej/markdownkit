@@ -63,6 +63,9 @@ final class NativeTextView: NSTextView {
     var wideTableOverlays: [Int: WideTableOverlay] = [:]
     /// Persisted horizontal scroll offset per wide table; survives restyles.
     var tableHorizontalScrollOffsets: [Int: CGFloat] = [:]
+    /// Cell to start editing once the table at `tableLocation` is re-rendered
+    /// (after a grid edit replaced its source). See `NativeTextView+Tables.swift`.
+    var pendingTableFocus: TableCellFocus?
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()

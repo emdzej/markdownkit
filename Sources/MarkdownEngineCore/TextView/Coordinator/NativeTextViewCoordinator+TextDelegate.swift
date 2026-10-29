@@ -117,7 +117,7 @@ extension NativeTextViewCoordinator {
             selectionRange: safeSelRange,
             tokens: tokens,
             in: fullText,
-            suppressed: !tv.isEditable
+            suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
         updateAutocorrectSettings(
             tv,
@@ -158,6 +158,7 @@ extension NativeTextViewCoordinator {
     public func textViewDidChangeSelection(_ notification: Notification) {
         guard let tv = notification.object as? NSTextView else { return }
         if isWritingToolsActive { return }
+        if routeSelectionThroughTableGrid(tv) { return }
         let selRange = tv.selectedRange()
         let currentEventType = NSApp.currentEvent?.type
         // Mouse focus landing on a rendered link: navigate, do not reveal its source.
@@ -177,7 +178,7 @@ extension NativeTextViewCoordinator {
         let nsText = tv.string as NSString
 
         let prevActive = activeTokenIndices
-        activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(selectionRange: selRange, tokens: tokens, in: nsText, suppressed: !tv.isEditable)
+        activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(selectionRange: selRange, tokens: tokens, in: nsText, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy)
         updateAutocorrectSettings(
             tv,
             caretLocation: selLoc,
@@ -298,7 +299,7 @@ extension NativeTextViewCoordinator {
             selectionRange: textView.selectedRange(),
             tokens: parsed.tokens,
             in: textView.string as NSString,
-            suppressed: !textView.isEditable
+            suppressed: !textView.isEditable, tableReveal: tableRevealPolicy
         )
 
         // Block LaTeX auto-wrap: insert newlines to keep $$ on its own line

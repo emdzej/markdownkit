@@ -13,17 +13,32 @@ enum MarkdownDetection {
 
     // MARK: - Active Token Indices
 
+    /// When the caret activates (reveals the raw source of) a table.
+    enum TableRevealPolicy: Equatable {
+        /// Caret inside the table reveals it (no table grid).
+        case caret
+        /// Only the table starting at this location is revealed ("Edit as
+        /// Markdown"); every other table stays rendered for the grid.
+        /// `nil` reveals none.
+        case only(Int?)
+    }
+
     static func computeActiveTokenIndices(
         selectionRange: NSRange,
         tokens: [MarkdownToken],
         in text: NSString,
-        suppressed: Bool = false
+        suppressed: Bool = false,
+        tableReveal: TableRevealPolicy = .caret
     ) -> Set<Int> {
         // Read-only mode (no caret) hides all tokens regardless of any trailing selection.
         if suppressed { return [] }
         var indices: Set<Int> = []
         let caretLocation = selectionRange.location
         for (index, token) in tokens.enumerated() {
+            if token.kind == .table, case .only(let revealed) = tableReveal {
+                if token.range.location == revealed { indices.insert(index) }
+                continue
+            }
             let start = token.range.location
             let end = NSMaxRange(token.range)
             if selectionRange.length > 0 && (token.kind == .inlineLatex || token.kind == .blockLatex) && NSIntersectionRange(selectionRange, token.range).length > 0 {

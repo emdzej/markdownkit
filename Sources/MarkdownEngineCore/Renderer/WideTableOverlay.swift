@@ -3,9 +3,10 @@
 //  WideTableOverlay.swift
 //  MarkdownEngine
 //
-//  NSScrollView subview of NativeTextView hosting a wide-table image with
-//  native horizontal scrolling. Sidesteps TextKit 2's fragment surface
-//  cache that defeats in-fragment custom scrolling.
+//  NSScrollView subview of NativeTextView hosting a table's `TableGridView`,
+//  with native horizontal scrolling for tables wider than the text column.
+//  Sidesteps TextKit 2's fragment surface cache that defeats in-fragment
+//  custom scrolling.
 //
 
 import AppKit
@@ -33,10 +34,10 @@ final class SubtleScroller: NSScroller {
 final class WideTableOverlay: NSScrollView {
 
     /// Hash of table source; key for offset persistence + reconcile lookup.
-    let sourceID: Int
+    var sourceID: Int
 
-    /// Document index of the table anchor; click on image moves caret here.
-    var anchorTextLocation: Int
+    /// Start of the table's source in the document.
+    var tableLocation: Int { gridView.info.sourceRange.location }
 
     /// Weak parent ref for offset persistence + caret forwarding.
     weak var ownerTextView: NativeTextView?
@@ -49,16 +50,12 @@ final class WideTableOverlay: NSScrollView {
         }
     }
 
-    private let tableImageView: WideTableImageView
+    let gridView: TableGridView
 
-    init(sourceID: Int, image: PlatformImage, ownerTextView: NativeTextView, anchorLocation: Int) {
+    init(sourceID: Int, info: TableRenderInfo, ownerTextView: NativeTextView) {
         self.sourceID = sourceID
-        self.anchorTextLocation = anchorLocation
         self.ownerTextView = ownerTextView
-        self.tableImageView = WideTableImageView(frame: CGRect(origin: .zero, size: image.size))
-        tableImageView.image = image
-        tableImageView.imageScaling = .scaleNone
-        tableImageView.imageAlignment = .alignTopLeft
+        self.gridView = TableGridView(info: info, textView: ownerTextView)
 
         super.init(frame: .zero)
 
@@ -79,8 +76,7 @@ final class WideTableOverlay: NSScrollView {
         horizontalScroller?.controlSize = .small
         automaticallyAdjustsContentInsets = false
 
-        documentView = tableImageView
-        tableImageView.ownerOverlay = self
+        documentView = gridView
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(scrollOffsetDidChange),
@@ -119,12 +115,9 @@ final class WideTableOverlay: NSScrollView {
     }
 
 
-    /// Swap the rendered image after a restyle regenerated it.
-    func updateImage(_ image: PlatformImage) {
-        if tableImageView.image !== image {
-            tableImageView.image = image
-            tableImageView.frame = CGRect(origin: .zero, size: image.size)
-        }
+    /// Swap in the re-rendered table after a restyle.
+    func update(info: TableRenderInfo) {
+        if gridView.info !== info { gridView.update(info: info) }
     }
 
     var horizontalOffset: CGFloat {
@@ -137,30 +130,6 @@ final class WideTableOverlay: NSScrollView {
 
     @objc private func scrollOffsetDidChange() {
         ownerTextView?.tableHorizontalScrollOffsets[sourceID] = horizontalOffset
-    }
-}
-
-// MARK: - Document view inside the overlay
-
-/// Forwards mouseDown to caret-into-table (so clicking switches to edit mode).
-final class WideTableImageView: NSImageView {
-
-    weak var ownerOverlay: WideTableOverlay?
-
-    override func mouseDown(with event: NSEvent) {
-        guard let overlay = ownerOverlay,
-              let textView = overlay.ownerTextView else {
-            super.mouseDown(with: event)
-            return
-        }
-        let location = overlay.anchorTextLocation
-        let docLen = (textView.string as NSString).length
-        guard location >= 0, location <= docLen else {
-            super.mouseDown(with: event)
-            return
-        }
-        textView.window?.makeFirstResponder(textView)
-        textView.setSelectedRange(NSRange(location: location, length: 0))
     }
 }
 
@@ -234,12 +203,12 @@ extension NativeTextView {
         let fullRange = NSRange(location: 0, length: storage.length)
 
         // Cheap presence-check first: skip the full-document layout pass when
-        // the doc has no wide tables. enumerateAttribute stops on first hit.
-        var hasAnyWideTable = false
+        // the doc has no tables. enumerateAttribute stops on first hit.
+        var hasAnyTable = false
         storage.enumerateAttribute(.scrollableBlockSourceID, in: fullRange, options: []) { value, _, stop in
-            if value is Int { hasAnyWideTable = true; stop.pointee = true }
+            if value is Int { hasAnyTable = true; stop.pointee = true }
         }
-        guard hasAnyWideTable else {
+        guard hasAnyTable else {
             removeAllWideTableOverlays()
             return
         }
@@ -249,7 +218,7 @@ extension NativeTextView {
 
         storage.enumerateAttribute(.scrollableBlockSourceID, in: fullRange, options: []) { value, attrRange, _ in
             guard let sourceID = value as? Int,
-                  let image = storage.attribute(.latexImage, at: attrRange.location, effectiveRange: nil) as? PlatformImage else { return }
+                  let info = storage.attribute(.tableRenderInfo, at: attrRange.location, effectiveRange: nil) as? TableRenderInfo else { return }
             seenSourceIDs.insert(sourceID)
 
             if let start = tcs.location(tcs.documentRange.location, offsetBy: attrRange.location),
@@ -261,7 +230,7 @@ extension NativeTextView {
             let anchorRect = bridge.boundingRect(forCharacterRange: attrRange, in: container)
             guard !anchorRect.isEmpty else { return }
 
-            let totalHeight = (storage.attribute(.scrollableBlockTotalHeight, at: attrRange.location, effectiveRange: nil) as? CGFloat) ?? image.size.height
+            let totalHeight = (storage.attribute(.scrollableBlockTotalHeight, at: attrRange.location, effectiveRange: nil) as? CGFloat) ?? info.layout.size.height
             // In breakout the overlay lives in the container, so add the column's X
             // offset and the text view's Y offset (the scroll-away header band).
             let columnLeft = (breakout ? frame.origin.x : 0) + textContainerOrigin.x + anchorRect.minX
@@ -272,6 +241,16 @@ extension NativeTextView {
             // Breakout: table starts at the text column's left edge; the left margin is scrollable space.
             let leftContentInset: CGFloat = breakout ? max(0, columnLeft) : 0
 
+            // An edited table gets a new sourceID (content hash); keep its
+            // overlay (scroll offset, focus) by matching the table's start.
+            if wideTableOverlays[sourceID] == nil,
+               let (oldID, moved) = wideTableOverlays.first(where: {
+                   !seenSourceIDs.contains($0.key) && $0.value.tableLocation == info.sourceRange.location
+               }) {
+                wideTableOverlays.removeValue(forKey: oldID)
+                moved.sourceID = sourceID
+                wideTableOverlays[sourceID] = moved
+            }
             if let existing = wideTableOverlays[sourceID] {
                 if !existing.frame.equalTo(overlayFrame) {
                     // Invalidate both old + new region so the vacated area redraws.
@@ -280,13 +259,9 @@ extension NativeTextView {
                     host.setNeedsDisplay(overlayFrame)
                 }
                 existing.leftContentInset = leftContentInset
-                existing.updateImage(image)
-                existing.anchorTextLocation = attrRange.location
+                existing.update(info: info)
             } else {
-                let overlay = WideTableOverlay(
-                    sourceID: sourceID, image: image,
-                    ownerTextView: self, anchorLocation: attrRange.location
-                )
+                let overlay = WideTableOverlay(sourceID: sourceID, info: info, ownerTextView: self)
                 overlay.frame = overlayFrame
                 overlay.leftContentInset = leftContentInset
                 host.addSubview(overlay)
@@ -301,6 +276,7 @@ extension NativeTextView {
             overlay.removeFromSuperview()
             wideTableOverlays.removeValue(forKey: sourceID)
         }
+        applyPendingTableFocus()
     }
 
     /// Drop all overlays synchronously (file switch path).

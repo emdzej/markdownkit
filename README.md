@@ -30,7 +30,8 @@ When we started building **[Nodes](https://apps.apple.com/de/app/nodes-by-the-we
 
 ## Features
 
-- **Live Markdown styling** — bold, italic, strikethrough, headings, lists, blockquotes, GFM tables, code, links, task checkboxes, horizontal rules 
+- **Live Markdown styling** — bold, italic, strikethrough, headings, lists, blockquotes, GFM tables, code, links, task checkboxes, horizontal rules
+- **WYSIWYG tables** (macOS) — edit GFM tables as a grid: cell editing, Tab/Return navigation, row/column/alignment context menu, "Edit as Markdown"; the file stays a plain pipe table
 - **Images** — standard Markdown `![alt](source)`, embedder supplies the bytes
 - **LaTeX** — both block (`$$ … $$`) and inline (`$…$`), embedder supplies
   the renderer

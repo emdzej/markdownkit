@@ -40,6 +40,7 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     /// returns the current value, regardless of when state changed.
     var lastImageFingerprint: AnyHashable?
     private var busObservers: [NSObjectProtocol] = []
+    private var undoObservers: [NSObjectProtocol] = []
     private var registeredAppearanceObserverName: Notification.Name?
     weak var textView: NSTextView?
     /// Owns the scroll-away header (build, content refresh, collapse/expand,
@@ -54,6 +55,9 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     var didEnsureLayoutForCurrentDocument: Bool = false
     var lastSyncedText: String
     var isProgrammaticEdit: Bool = false
+    /// Start location of the table shown as raw markdown ("Edit as Markdown");
+    /// nil while every table is a grid. See `+Tables.swift`.
+    var revealedTableLocation: Int?
     var isWritingToolsActive: Bool = false
     var wtStartDocumentId: String?
     weak var wtChildWindow: NSWindow?
@@ -202,7 +206,33 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     //   - +Autocorrect     — spell/grammar/quote toggles
     //   - +WritingTools    — macOS 15+ Writing Tools session
 
+    /// AppKit applies undo/redo to the text storage without posting
+    /// `NSText.didChangeNotification`, so `textDidChange` never sees it.
+    /// Re-sync the binding (and restyle) from the undo manager's own
+    /// notifications; a no-op when the text already matches.
+    func subscribeToUndoNotifications() {
+        guard undoObservers.isEmpty else { return }
+        let center = NotificationCenter.default
+        for name in [Notification.Name.NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange] {
+            undoObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] notification in
+                guard let self, let tv = self.textView,
+                      let manager = notification.object as? UndoManager, manager === tv.undoManager else { return }
+                self.syncAfterUndoRedo(tv)
+            })
+        }
+    }
+
+    private func syncAfterUndoRedo(_ tv: NSTextView) {
+        guard !isWritingToolsActive, tv.string != lastSyncedText else { return }
+        let current = tv.string
+        lastSyncedText = current
+        text = current
+        restyleParagraphs([NSRange(location: 0, length: (current as NSString).length)], in: tv)
+        (tv as? NativeTextView)?.updateWideTableOverlays()
+    }
+
     deinit {
+        undoObservers.forEach(NotificationCenter.default.removeObserver(_:))
         NotificationCenter.default.removeObserver(self)
         busObservers.forEach(NotificationCenter.default.removeObserver(_:))
     }

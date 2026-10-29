@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- WYSIWYG tables (macOS): every GFM table is an editable grid. Click a cell
+  to edit its raw inline markdown; Tab / Shift-Tab / Return / arrows move
+  between cells (Tab past the last cell or Return in the last row adds a
+  row), Esc discards. The context menu inserts, deletes, and moves rows and
+  columns, sets alignment, and offers "Edit as Markdown" for the raw pipe
+  source. Each committed change rewrites the table as normalized GFM in one
+  undoable edit. Backed by the new `MarkdownTable` model (escape-aware
+  parse / serialize, structural edits).
 - iOS / iPadOS support: the parser, styler, and renderer build for UIKit via
   platform aliases (`PlatformFont`, `PlatformColor`, ...), and
   `NativeTextViewWrapper` has a UIKit implementation (`TextView/UIKit/`).
@@ -28,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pendingInlineReplacement`, `onCaretRectChange`, `onInlineSelectionChange`.
 
 ### Changed
+- A table no longer reveals its raw source just because the caret is
+  inside it (macOS); arrowing into a table focuses its grid instead.
+- Undo / redo now re-sync the `text` binding and restyle; AppKit applies
+  them without posting `NSText.didChangeNotification`.
 - `EmbeddedImageProvider` / `EmbeddedImageRequest(name:)` are now
   `ImageProvider` / `ImageRequest(source:)`; `configuration.imageEmbed` is
   `configuration.images` (`ImageStyle`).
