@@ -239,6 +239,8 @@ enum BlockParser {
                 // GFM table: a `|…|` header, a `|-…-|` separator, then data rows.
                 var end = i + 1
                 while end + 1 < lines.count, isTableRow(lineText(end + 1)) { end += 1 }
+                // `{cols="…"}` directly below belongs to the table.
+                if end + 1 < lines.count, MarkdownTable.attributeLine(lineText(end + 1)) != nil { end += 1 }
                 blocks.append(Block(kind: .table, range: union(lines[i...end])))
                 i = end + 1
 

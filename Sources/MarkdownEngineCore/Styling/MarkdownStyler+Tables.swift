@@ -53,6 +53,12 @@ extension MarkdownStyler {
                     }
                     i += 1
                 }
+                // The trailing `{cols="…"}` line is syntax too.
+                let lastLine = ctx.nsText.lineRange(for: NSRange(location: max(token.range.location, end - 1), length: 0))
+                let lastText = ctx.nsText.substring(with: NSIntersectionRange(lastLine, token.range))
+                if MarkdownTable.attributeLine(lastText) != nil {
+                    attrs.append((NSIntersectionRange(lastLine, token.range), [.foregroundColor: muted]))
+                }
                 continue
             }
 
@@ -65,15 +71,20 @@ extension MarkdownStyler {
                     )
                 }
             }
-            let layout = TableGridLayout(cells: cells, columnCount: table.columnCount, baseFont: ctx.baseFont)
+            let containerWidth = effectiveContainerWidth(for: ctx)
+            let availableWidth = containerWidth - TableGridLayout.gutter.right
+            let layout = TableGridLayout(
+                cells: cells, columnCount: table.columnCount, baseFont: ctx.baseFont,
+                widths: table.columnWidths, availableWidth: availableWidth
+            )
             // Resolve table colors under the text view's real appearance.
             let image = renderTable(
                 cells: cells, alignments: table.alignments, layout: layout,
                 theme: theme, appearance: Self.tableRenderAppearance(ctx)
             )
             let imageBounds = CGRect(origin: .zero, size: image.size)
-            let containerWidth = effectiveContainerWidth(for: ctx)
-            let isWide = image.size.width > containerWidth + 0.5
+            // The table itself decides; its marker gutter may overhang.
+            let isWide = layout.tableRect.maxX > containerWidth + 0.5
             let sourceID = stableTableSourceID(for: source, occurrenceIndex: occurrenceIndex)
             // Overlay mode for the interactive grid, and for wide tables (horizontal scroll).
             let mode: RenderedStandaloneBlockMode = (isWide || tableGridSupported)
@@ -89,15 +100,16 @@ extension MarkdownStyler {
                 rawContent: source,
                 image: image,
                 imageBounds: imageBounds,
-                paragraphSpacingBefore: ctx.baseDefaultLineHeight * 0.5,
-                paragraphSpacing: ctx.baseDefaultLineHeight * 0.5,
+                // The marker gutters above and below take most of the usual spacing.
+                paragraphSpacingBefore: max(0, ctx.baseDefaultLineHeight * 0.5 - TableGridLayout.gutter.top),
+                paragraphSpacing: max(0, ctx.baseDefaultLineHeight * 0.5 - TableGridLayout.gutter.bottom),
                 alignment: .left,
                 mode: mode,
                 ctx: ctx,
                 attrs: &attrs
             )
             if rendered {
-                let info = TableRenderInfo(table: table, sourceRange: token.range, layout: layout, image: image)
+                let info = TableRenderInfo(table: table, sourceRange: token.range, layout: layout, image: image, availableWidth: availableWidth)
                 attrs.append((token.range, [.tableRenderInfo: info]))
             }
         }
