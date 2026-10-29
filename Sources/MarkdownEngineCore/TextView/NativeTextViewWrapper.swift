@@ -334,7 +334,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         // (e.g. when the available images change). Cheap pointer-/
         // value-based comparison; full equality isn't required because the
         // embedder is the source of truth.
-        let newImageFingerprint = configuration.services.images.fingerprint()
+        let newImageFingerprint = configuration.services.contentFingerprint
         let imageChanged = newImageFingerprint != context.coordinator.lastImageFingerprint
         if imageChanged {
             context.coordinator.lastImageFingerprint = newImageFingerprint
@@ -424,7 +424,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         )
         coordinator.documentId = documentId
         coordinator.configuration = configuration
-        coordinator.lastImageFingerprint = configuration.services.images.fingerprint()
+        coordinator.lastImageFingerprint = configuration.services.contentFingerprint
         coordinator.onCodeBlockSelectionChange = onCodeBlockSelectionChange
         coordinator.userPrefersContinuousSpellChecking = configuration.spellChecking.continuousSpellChecking
         coordinator.userPrefersGrammarChecking = configuration.spellChecking.grammarChecking

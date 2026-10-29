@@ -78,6 +78,9 @@ configuration.services = services
 - ``ImageRequest``
 - ``SyntaxHighlighter``
 - ``LatexRenderer``
+- ``LinkPreviewProvider``
+- ``LinkPreview``
+- ``LinkPreviewRequest``
 
 ### Services Container
 
@@ -89,11 +92,13 @@ configuration.services = services
 - ``NoOpImageProvider``
 - ``PlainTextSyntaxHighlighter``
 - ``NoOpLatexRenderer``
+- ``NoOpLinkPreviewProvider``
 
 ### Images and Link Attributes
 
 - ``MarkdownAttributes``
 - ``ImageStyle``
+- ``LinkPreviewStyle``
 
 ### Selection
 

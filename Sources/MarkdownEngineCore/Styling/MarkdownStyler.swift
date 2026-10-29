@@ -89,6 +89,7 @@ enum MarkdownStyler {
         result += styleBlockLatex(ctx)
         result += styleInlineLatex(ctx)
         result += styleImageLinks(ctx)
+        result += styleLinkPreviews(ctx)
         result += styleTables(ctx)
         return result
     }

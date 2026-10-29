@@ -35,6 +35,7 @@ When we started building **[Nodes](https://apps.apple.com/de/app/nodes-by-the-we
 - **Images** — standard Markdown `![alt](source)`, embedder supplies the bytes; `{…}` attributes set size and alignment (`{.small}`, `{.icon}`, `{width=320 .center}`)
 - **LaTeX** — both block (`$$ … $$`) and inline (`$…$`), embedder supplies
   the renderer
+- **Link preview cards** — `[text](url){.preview}` renders a card in four sizes from metadata you supply
 - **File drops** — dropped files go to your `onDropFiles` hook, which stores them and returns the link to insert
 - **Code blocks** with embedder-supplied syntax highlighting and overlayable
   copy buttons
@@ -106,6 +107,7 @@ a no-op default so you only implement what you actually need:
 | Protocol | What you supply | Ready-made bridge / suggested library |
 |---|---|---|
 | `ImageProvider` | Load the image for `![alt](source)` | (your asset store) |
+| `LinkPreviewProvider` | Metadata for `[text](url){.preview}` cards | LinkPresentation / QuickLookThumbnailing |
 | `SyntaxHighlighter` | Highlight code blocks for a given language | **`HighlighterSwiftBridge`** ([recommended](#code-blocks)) — built on [HighlighterSwift](https://github.com/smittytone/HighlighterSwift) |
 | `LatexRenderer` | Render a LaTeX string to an `NSImage` | **`SwiftMathBridge`** ([recommended](#latex-rendering)) — built on [SwiftMath](https://github.com/mgriebling/SwiftMath) |
 
@@ -220,7 +222,7 @@ while the caret is elsewhere, and shown dimmed when the caret is on it.
 ![](chart.png){width=320 .center} explicit points; .left / .center / .right
 Built with ![](swift.png){.icon}  inline, at line height
 ![photo|200](photo.jpg)           Obsidian width hint, also honoured
-[Spec](spec.pdf){.preview}        parsed; preview cards are not rendered yet
+[Spec](spec.pdf){.preview}        preview card, see below
 ```
 
 Images keep their aspect ratio and never grow past the column; `.small`,
@@ -229,6 +231,35 @@ Images keep their aspect ratio and never grow past the column; `.small`,
 thumbnail. Text that isn't valid attribute syntax, or a brace after a
 space, stays ordinary text. `MarkdownAttributes.setSize(_:)` and
 `markdown()` rewrite the block for a size menu.
+
+### Link Preview Cards
+
+A link on its own line with `{.preview}` or a size renders as a card:
+`.small` is one line (icon, title, host), `.medium` (the default) adds a
+thumbnail and description, `.large` / `.full` put a hero image on top.
+With the caret on the link the markdown shows, with the card below it.
+`{.icon}` puts the target's icon before the link text, anywhere in a
+paragraph. Clicking a card goes to `onLinkClick` like any link.
+
+The engine only draws. Supply the metadata with a `LinkPreviewProvider`
+(LinkPresentation for web pages, QuickLook thumbnails for files, ...):
+
+```swift
+struct Previews: LinkPreviewProvider {
+    let store: PreviewStore   // your fetcher + cache
+    func preview(for request: LinkPreviewRequest) -> LinkPreview? {
+        store.cached(request.destination) ?? { store.fetch(request.destination); return .loading }()
+    }
+    func fingerprint() -> AnyHashable { store.version }   // bump when a fetch finishes
+}
+configuration.services.linkPreviews = Previews(store: store)
+```
+
+Return `nil` to keep a plain link, `.loading` while fetching (the card shows
+the link text and host), or `.unavailable` for a muted badge after the link.
+Card widths are in `configuration.linkPreviews`. Link destinations reach
+`onLinkClick` as written: relative paths and `mailto:` are no longer turned
+into `https://` URLs.
 
 ### Dropping Files
 

@@ -193,18 +193,27 @@ public struct MarkdownEditorServices: Sendable {
     public var images: any ImageProvider
     public var syntaxHighlighter: any SyntaxHighlighter
     public var latex: any LatexRenderer
+    public var linkPreviews: any LinkPreviewProvider
     public var bus: MarkdownEditorBus
 
     public init(
         images: any ImageProvider = NoOpImageProvider(),
         syntaxHighlighter: any SyntaxHighlighter = PlainTextSyntaxHighlighter(),
         latex: any LatexRenderer = NoOpLatexRenderer(),
+        linkPreviews: any LinkPreviewProvider = NoOpLinkPreviewProvider(),
         bus: MarkdownEditorBus = .default
     ) {
         self.images = images
         self.syntaxHighlighter = syntaxHighlighter
         self.latex = latex
+        self.linkPreviews = linkPreviews
         self.bus = bus
+    }
+
+    /// Changes whenever an image or link preview the editor shows may have
+    /// changed; the editor restyles when it does.
+    var contentFingerprint: AnyHashable {
+        AnyHashable([images.fingerprint(), linkPreviews.fingerprint()])
     }
 
     public static let `default` = MarkdownEditorServices()

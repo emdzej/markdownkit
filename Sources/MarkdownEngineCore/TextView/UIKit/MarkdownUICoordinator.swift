@@ -23,6 +23,8 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     /// Start of the table shown as raw markdown ("Edit as Markdown"); nil
     /// while every table is a grid.
     var revealedTableLocation: Int?
+    /// Images and link previews last styled; a change restyles the document.
+    var lastContentFingerprint: AnyHashable?
     private var tableRevealPolicy: MarkdownDetection.TableRevealPolicy { .only(revealedTableLocation) }
     private var lastSyncedText: String
     private var activeTokenIndices: Set<Int> = []

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Link preview cards: a standalone `[text](url){.preview}` (or any size
+  attribute) renders as a card (`.small`, `.medium`, `.large`, `.full`;
+  `width=` / `height=`; aligned like images), from metadata supplied by the
+  new `LinkPreviewProvider` service (`MarkdownEditorServices.linkPreviews`).
+  `.icon` links get an inline icon; `.unavailable` targets a badge;
+  `.loading` cards fall back to the link text. `LinkPreviewStyle` holds the
+  card sizes. Both platforms restyle when a provider's fingerprint changes
+  (iOS previously ignored `ImageProvider` fingerprint changes too).
 - `{…}` attributes after images and links (`![](a.png){.small .center}`,
   `[Doc](a.pdf){.preview}`), parsed into `MarkdownAttributes` and hidden
   like other markers when the caret is elsewhere. Images honour `.icon`
@@ -95,6 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checking is enabled.
 
 ### Fixed
+- Link destinations without `://` (relative paths, `mailto:`, `#anchors`)
+  were rewritten to `https://…` before reaching `onLinkClick`.
 - `NativeTextViewWrapper` keeps links clickable and text selectable
   when `isEditable: false`; `isSelectable` is no longer coupled to
   `isEditable`. (#31)

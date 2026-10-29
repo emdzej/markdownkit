@@ -75,6 +75,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         let documentChanged = coordinator.documentId != documentId
         let fontChanged = coordinator.fontName != fontName || coordinator.fontSize != fontSize
         let editableChanged = tv.isEditable != isEditable
+        let fingerprint = configuration.services.contentFingerprint
+        let contentChanged = coordinator.lastContentFingerprint != nil && coordinator.lastContentFingerprint != fingerprint
+        coordinator.lastContentFingerprint = fingerprint
         coordinator.documentId = documentId
         coordinator.fontName = fontName
         coordinator.fontSize = fontSize
@@ -85,7 +88,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         if documentChanged || tv.string != text {
             coordinator.load(text, into: tv)
             if documentChanged { tv.setContentOffset(.zero, animated: false) }
-        } else if fontChanged || editableChanged {
+        } else if fontChanged || editableChanged || contentChanged {
             coordinator.rebuildAll(tv)
         }
     }

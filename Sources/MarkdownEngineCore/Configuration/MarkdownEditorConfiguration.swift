@@ -38,6 +38,7 @@ public struct MarkdownEditorConfiguration: Sendable {
     public var lists: ListStyle
     public var headings: HeadingStyle
     public var images: ImageStyle
+    public var linkPreviews: LinkPreviewStyle
     public var blockLatex: BlockLatexStyle
     public var inlineLatex: InlineLatexStyle
     public var checkbox: CheckboxStyle
@@ -61,6 +62,7 @@ public struct MarkdownEditorConfiguration: Sendable {
         lists: ListStyle = .default,
         headings: HeadingStyle = .default,
         images: ImageStyle = .default,
+        linkPreviews: LinkPreviewStyle = .default,
         blockLatex: BlockLatexStyle = .default,
         inlineLatex: InlineLatexStyle = .default,
         checkbox: CheckboxStyle = .default,
@@ -82,6 +84,7 @@ public struct MarkdownEditorConfiguration: Sendable {
         self.lists = lists
         self.headings = headings
         self.images = images
+        self.linkPreviews = linkPreviews
         self.blockLatex = blockLatex
         self.inlineLatex = inlineLatex
         self.checkbox = checkbox

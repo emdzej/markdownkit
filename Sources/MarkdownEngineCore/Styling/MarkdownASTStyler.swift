@@ -455,10 +455,8 @@ enum MarkdownASTStyler {
         children: [InlineNode], font: PlatformFont, ctx: Ctx, into attrs: inout [StyledRange]
     ) {
         attrs.append((range, [.spellingState: 0]))
-        var urlString = ctx.ns.substring(with: urlRange)
-        if !urlString.contains("://") { urlString = "https://\(urlString)" }
         let isActive = ctx.isActive(range)
-        if let url = URL(string: urlString) {
+        if let url = linkURL(ctx.ns.substring(with: urlRange)) {
             if isActive {
                 attrs.append((textRange, [
                     .foregroundColor: ctx.theme.link.withAlphaComponent(ctx.config.link.activeLinkAlpha),
@@ -473,6 +471,15 @@ enum MarkdownASTStyler {
         }
         for marker in markers { attrs.append((marker, [.foregroundColor: ctx.theme.mutedText])) }
         styleInlines(children, font: font, ctx: ctx, into: &attrs)
+    }
+
+    /// The `.link` value for a destination. Schemes (`https:`, `mailto:`) and
+    /// relative paths (`Notes/Idea.md`, `#heading`) are kept as written, so
+    /// `onLinkClick` gets the destination; a bare `www.` host becomes https.
+    static func linkURL(_ destination: String) -> URL? {
+        let trimmed = destination.trimmingCharacters(in: .whitespaces)
+        if trimmed.lowercased().hasPrefix("www.") { return URL(string: "https://\(trimmed)") }
+        return URL(string: trimmed)
     }
 
     // MARK: - Marker shrinking (hide syntax of inactive nodes)
