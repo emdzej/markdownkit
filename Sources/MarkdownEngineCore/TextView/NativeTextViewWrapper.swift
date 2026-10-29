@@ -173,6 +173,12 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.minOverscrollPoints = configuration.overscroll.minPoints
         context.coordinator.configuration = configuration
         textView.insertionPointColor = configuration.theme.bodyText
+        // NSTextView draws `.link` runs with these, over the styler's foreground color.
+        textView.linkTextAttributes = [
+            .foregroundColor: configuration.theme.link,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .cursor: NSCursor.pointingHand,
+        ]
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.isRichText = true
