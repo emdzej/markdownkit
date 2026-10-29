@@ -267,8 +267,12 @@ enum MarkdownASTStyler {
 
     private static func styleBlock(_ block: BlockNode, font: PlatformFont, ctx: Ctx, into attrs: inout [StyledRange]) {
         switch block {
-        case .paragraph(_, let inlines):
-            styleInlines(inlines, font: font, ctx: ctx, into: &attrs)
+        case .paragraph(let range, let inlines):
+            if isHTMLComment(ctx.ns.substring(with: range)) {
+                styleHTMLComment(range: range, ctx: ctx, into: &attrs)
+            } else {
+                styleInlines(inlines, font: font, ctx: ctx, into: &attrs)
+            }
 
         case .heading(let level, let range, let markers, let inlines):
             let multiplier = ctx.config.headings.fontMultiplier(for: level)
@@ -534,6 +538,30 @@ enum MarkdownASTStyler {
             case .text, .code, .inlineLatex:
                 break   // own marker handling / not shrunk
             }
+        }
+    }
+
+    /// A line that is only `<!-- … -->` (e.g. a formula sheet name above a table).
+    static func isHTMLComment(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("<!--") && trimmed.hasSuffix("-->") && !trimmed.contains("\n")
+    }
+
+    /// Comments are invisible in formatted mode, like in rendered markdown;
+    /// with the caret on the line they show, small and muted, for editing.
+    private static func styleHTMLComment(range: NSRange, ctx: Ctx, into attrs: inout [StyledRange]) {
+        let small = PlatformFont.md(named: ctx.fontName, size: ctx.baseFont.pointSize * 0.8)
+        if ctx.isActive(range) {
+            attrs.append((range, [.font: small, .foregroundColor: ctx.theme.mutedText, .spellingState: 0]))
+        } else {
+            let collapsed = NSMutableParagraphStyle()
+            collapsed.minimumLineHeight = 1
+            collapsed.maximumLineHeight = 1
+            collapsed.paragraphSpacing = 0
+            collapsed.paragraphSpacingBefore = 0
+            attrs.append((ctx.ns.paragraphRange(for: range), [.paragraphStyle: collapsed]))
+            attrs.append((range, [.font: ctx.inlineMarkerFont, .foregroundColor: PlatformColor.clear,
+                                  .kern: -ctx.inlineMarkerFont.pointSize, .spellingState: 0]))
         }
     }
 

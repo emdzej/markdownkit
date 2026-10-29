@@ -115,3 +115,13 @@ struct TableCellEditingTests {
     }
     #endif
 }
+
+@Suite("HTML comment lines")
+struct HTMLCommentLineTests {
+    @Test func detectsSingleLineComments() {
+        #expect(MarkdownASTStyler.isHTMLComment("<!-- budget -->"))
+        #expect(MarkdownASTStyler.isHTMLComment("  <!--budget-->\n"))
+        #expect(!MarkdownASTStyler.isHTMLComment("text <!-- x -->"))
+        #expect(!MarkdownASTStyler.isHTMLComment("<!-- open"))
+    }
+}
