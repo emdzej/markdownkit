@@ -195,6 +195,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     }
 
     public func textViewDidChange(_ textView: UITextView) {
+        (textView as? MarkdownUITextView)?.markerBar.textDidChange()
         guard let tv = textView as? MarkdownUITextView, !isProgrammaticEdit else { return }
         textChanged(tv)
     }
@@ -243,6 +244,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     }
 
     public func textViewDidChangeSelection(_ textView: UITextView) {
+        (textView as? MarkdownUITextView)?.markerBar.selectionDidChange()
         guard let tv = textView as? MarkdownUITextView, !isProgrammaticEdit,
               tv.markedTextRange == nil, pendingEditedRange == nil else { return }
         if routeSelectionThroughTableGrid(tv) { return }

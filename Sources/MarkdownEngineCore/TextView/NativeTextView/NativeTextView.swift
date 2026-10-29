@@ -55,6 +55,13 @@ final class NativeTextView: NSTextView {
     // MARK: Drag-select state
     var dragStartMouseScreenLoc: CGPoint?
 
+    // MARK: Image / link bar (see `MarkerBar.swift`)
+    lazy var markerBar: MarkerBarPresenter = {
+        let presenter = MarkerBarPresenter()
+        presenter.textView = self
+        return presenter
+    }()
+
     // MARK: Placeholder state
     /// Click-through ghost-text label shown while the document is empty;
     /// managed by `NativeTextView+Placeholder.swift`.

@@ -42,6 +42,7 @@ extension NativeTextViewCoordinator {
         guard let tv = notification.object as? NSTextView else { return }
         // Before the early returns: the first keystroke must hide the placeholder.
         (tv as? NativeTextView)?.refreshPlaceholderVisibility()
+        MainActor.assumeIsolated { (tv as? NativeTextView)?.markerBar.textDidChange() }
         let wtActive = isWritingToolsActive
         if wtActive, wtDetectedMode == .unknown {
             let firstEditLen = tv.textStorage?.editedRange.length ?? 0
@@ -157,6 +158,7 @@ extension NativeTextViewCoordinator {
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         guard let tv = notification.object as? NSTextView else { return }
+        MainActor.assumeIsolated { (tv as? NativeTextView)?.markerBar.selectionDidChange() }
         if isWritingToolsActive { return }
         if routeSelectionThroughTableGrid(tv) { return }
         let selRange = tv.selectedRange()
