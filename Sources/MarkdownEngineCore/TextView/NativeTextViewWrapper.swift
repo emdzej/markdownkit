@@ -487,14 +487,11 @@ private extension NativeTextViewWrapper {
         )
         let topOffset = Self.lineTop(of: topCharacter, in: textView).map { $0 - textView.visibleRect.minY } ?? 0
 
-        // Everything but the services (their own fingerprint swaps those).
-        var updated = configuration
-        updated.services = coordinator.configuration.services
-        coordinator.configuration = updated
+        // The whole configuration, services included (a theme change can bring a new highlighter).
+        coordinator.configuration = configuration
+        coordinator.lastImageFingerprint = configuration.services.contentFingerprint
         if let native = textView as? NativeTextView {
-            var nativeUpdated = configuration
-            nativeUpdated.services = native.configuration.services
-            native.configuration = nativeUpdated
+            native.configuration = configuration
             native.removeAllWideTableOverlays()
         }
         coordinator.revealedTableLocation = nil
