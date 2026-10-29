@@ -1,0 +1,28 @@
+name: MarkdownEngineDemoiOS
+options:
+  bundleIdPrefix: dev.emdzej
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  MarkdownEngine:
+    path: ../..
+targets:
+  MarkdownEngineDemoiOS:
+    type: application
+    platform: iOS
+    sources: [MarkdownEngineDemoiOS]
+    dependencies:
+      - package: MarkdownEngine
+        product: MarkdownEngine
+      - package: MarkdownEngine
+        product: MarkdownEngineCodeBlocks
+      - package: MarkdownEngine
+        product: MarkdownEngineLatex
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"

@@ -203,6 +203,10 @@ public final class SwiftMathBridge: LatexRenderer, @unchecked Sendable {
         let format = UIGraphicsImageRendererFormat.preferred()
         format.opaque = false
         return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            // The label draws in CoreText (y-up) coordinates and relies on
+            // `layer.geometryFlipped`, which `render(in:)` ignores off-screen.
+            ctx.cgContext.translateBy(x: 0, y: size.height)
+            ctx.cgContext.scaleBy(x: 1, y: -1)
             label.layer.render(in: ctx.cgContext)
         }.cgImage
         #endif
