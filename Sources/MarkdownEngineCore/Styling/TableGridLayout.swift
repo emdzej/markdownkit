@@ -176,13 +176,21 @@ final class TableRenderInfo: NSObject {
     let image: PlatformImage
     /// What `%` column widths are a share of.
     let availableWidth: CGFloat
+    /// Each cell's formula (row 0 = header) when it shows a computed value.
+    let formulas: [[String?]]
 
-    init(table: MarkdownTable, sourceRange: NSRange, layout: TableGridLayout, image: PlatformImage, availableWidth: CGFloat = 0) {
+    init(table: MarkdownTable, sourceRange: NSRange, layout: TableGridLayout, image: PlatformImage, availableWidth: CGFloat = 0,
+         formulas: [[String?]] = []) {
         self.table = table
         self.sourceRange = sourceRange
         self.layout = layout
         self.image = image
         self.availableWidth = availableWidth
+        self.formulas = formulas
+    }
+
+    func formula(row: Int, column: Int) -> String? {
+        row < formulas.count && column < formulas[row].count ? formulas[row][column] : nil
     }
 }
 

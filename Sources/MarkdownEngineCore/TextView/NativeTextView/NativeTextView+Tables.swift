@@ -35,7 +35,9 @@ extension NativeTextView {
     func restyleTable(at range: NSRange) {
         let ns = string as NSString
         guard NSMaxRange(range) <= ns.length else { return }
-        coordinator?.restyleParagraphs([ns.paragraphRange(for: range)], in: self)
+        // Formulas in other tables may read this one.
+        let dependents = MarkdownFormulas.dependentTableParagraphs(in: string, excluding: range)
+        coordinator?.restyleParagraphs([ns.paragraphRange(for: range)] + dependents, in: self)
         updateWideTableOverlays()
     }
 

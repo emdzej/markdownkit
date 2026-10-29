@@ -24,7 +24,7 @@
 
 import AppKit
 
-final class TableGridView: NSView, NSTextFieldDelegate {
+final class TableGridView: NSView, NSTextFieldDelegate, NSViewToolTipOwner {
 
     private(set) var info: TableRenderInfo
     weak var textView: NativeTextView?
@@ -43,6 +43,7 @@ final class TableGridView: NSView, NSTextFieldDelegate {
         self.info = info
         self.textView = textView
         super.init(frame: CGRect(origin: .zero, size: info.layout.size))
+        updateFormulaToolTips()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
@@ -52,11 +53,33 @@ final class TableGridView: NSView, NSTextFieldDelegate {
     func update(info: TableRenderInfo) {
         self.info = info
         setFrameSize(info.layout.size)
+        updateFormulaToolTips()
         window?.invalidateCursorRects(for: self)
         if let editingCell, editingCell.row < info.table.rowCount, editingCell.column < info.table.columnCount {
             positionField(for: editingCell)
         }
         needsDisplay = true
+    }
+
+    // MARK: Formula tooltips
+
+    /// Hovering a computed cell shows its formula.
+    private func updateFormulaToolTips() {
+        removeAllToolTips()
+        for (row, columns) in info.formulas.enumerated() {
+            for (column, formula) in columns.enumerated() where formula != nil {
+                addToolTip(info.layout.cellRect(row: row, column: column), owner: self, userData: nil)
+            }
+        }
+    }
+
+    func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
+        for (row, columns) in info.formulas.enumerated() {
+            for (column, formula) in columns.enumerated() {
+                if let formula, info.layout.cellRect(row: row, column: column).contains(point) { return "=" + formula }
+            }
+        }
+        return ""
     }
 
     // MARK: Drawing
@@ -262,7 +285,8 @@ final class TableGridView: NSView, NSTextFieldDelegate {
     private func tableWithFieldValue() -> MarkdownTable {
         var table = info.table
         if let field, let cell = editingCell {
-            table[cell.row, cell.column] = field.stringValue
+            // A typed `=SUM(A1:A2)` becomes the formula link `[?](#SUM(A1:A2))`.
+            table[cell.row, cell.column] = MarkdownFormulas.cellSource(fromTyped: field.stringValue)
         }
         return table
     }
