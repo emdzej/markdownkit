@@ -14,16 +14,106 @@ import AppKit
 import UIKit
 #endif
 import Foundation
+import Observation
 
 @MainActor
+@Observable
 public final class MarkdownEditorController {
     #if os(macOS)
-    weak var textView: NativeTextView?
+    @ObservationIgnored weak var textView: NativeTextView? {
+        didSet { if textView !== oldValue { observeEditing() } }
+    }
     #else
-    weak var textView: MarkdownUITextView?
+    @ObservationIgnored weak var textView: MarkdownUITextView? {
+        didSet {
+            textView?.editorController = self
+            if textView !== oldValue { observeEditing() }
+        }
+    }
     #endif
 
+    /// True while the editor has keyboard focus (iOS: while editing), e.g.
+    /// to show a formatting bar above the keyboard.
+    public private(set) var isEditing = false
+    /// The block style of the caret's line, refreshed as the selection moves.
+    public private(set) var currentBlockStyle: MarkdownFormatting.BlockStyle = .body
+
+    @ObservationIgnored private var observers: [NSObjectProtocol] = []
+
     public init() {}
+
+    private func observeEditing() {
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        observers = []
+        guard let textView else { return }
+        #if os(macOS)
+        let names: [(Notification.Name, Bool?)] = [
+            (NSText.didBeginEditingNotification, true), (NSText.didEndEditingNotification, false),
+            (NSTextView.didChangeSelectionNotification, nil),
+        ]
+        #else
+        let names: [(Notification.Name, Bool?)] = [
+            (UITextView.textDidBeginEditingNotification, true), (UITextView.textDidEndEditingNotification, false),
+            (UITextView.textDidChangeNotification, nil),
+        ]
+        #endif
+        for (name, editing) in names {
+            observers.append(NotificationCenter.default.addObserver(forName: name, object: textView, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    if let editing { self?.isEditing = editing }
+                    self?.refreshBlockStyle()
+                }
+            })
+        }
+    }
+
+    /// Re-reads the caret's block style (iOS posts no selection notification;
+    /// the coordinator calls this when the selection changes).
+    func refreshBlockStyle() {
+        guard let textView, let range = selectedRange else { return }
+        let style = MarkdownFormatting.blockStyle(at: range.location, in: textView.string)
+        if style != currentBlockStyle { currentBlockStyle = style }
+    }
+
+    // MARK: Formatting
+
+    /// Bold, italic, strikethrough or inline code around the selection (toggles).
+    public func toggle(_ style: MarkdownFormatting.InlineStyle) {
+        perform("Format") { MarkdownFormatting.toggle(style, in: $0, selection: $1) }
+    }
+
+    /// Makes the selected lines body text, a heading, a list or a quote
+    /// (applying the style they already all have turns them back into body text).
+    public func setBlockStyle(_ style: MarkdownFormatting.BlockStyle) {
+        perform("Format") { MarkdownFormatting.setBlock(style, in: $0, selection: $1) }
+    }
+
+    public func indent() { perform("Indent") { MarkdownFormatting.indent(true, in: $0, selection: $1) } }
+    public func outdent() { perform("Outdent") { MarkdownFormatting.indent(false, in: $0, selection: $1) } }
+
+    /// Inserts an empty table and puts the caret in its first cell.
+    public func insertTable(columns: Int = 2, rows: Int = 2) {
+        perform("Insert Table") { MarkdownFormatting.insertTable(columns: columns, rows: rows, in: $0, selection: $1) }
+    }
+
+    private func perform(_ actionName: String, _ makeEdit: (String, NSRange) -> MarkdownFormattingEdit) {
+        guard let textView, let selection = selectedRange else { return }
+        let edit = makeEdit(textView.string, selection)
+        textView.insertMarkdown(edit.replacement, replacing: edit.range, actionName: actionName)
+        let length = (textView.string as NSString).length
+        let start = min(edit.selection.location, length)
+        textView.setSelectedRange(NSRange(location: start, length: min(edit.selection.length, length - start)))
+        refreshBlockStyle()
+    }
+
+    /// Hides the keyboard (iOS) / gives up focus.
+    public func endEditing() {
+        #if os(macOS)
+        textView?.window?.makeFirstResponder(nil)
+        #else
+        textView?.resignFirstResponder()
+        #endif
+    }
 
     /// True once the editor's view exists.
     public var isAttached: Bool { textView != nil }

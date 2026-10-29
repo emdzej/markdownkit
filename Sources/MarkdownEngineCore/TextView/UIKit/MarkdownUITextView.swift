@@ -17,6 +17,8 @@ final class MarkdownUITextView: UITextView {
     var layoutBridge: LayoutBridge?
     /// Embedder hook for files dropped onto the editor; see `+FileDrop.swift`.
     var onDropFiles: FileDropHandler?
+    /// Told when the selection moves (formatting bar state).
+    weak var editorController: MarkdownEditorController?
 
     /// Strongly held: NSTextLayoutManager.delegate is weak.
     private(set) var layoutDelegate = MarkdownLayoutManagerDelegate()
