@@ -15,6 +15,7 @@ extension NativeTextView {
     override func mouseMoved(with event: NSEvent) {
         super.mouseMoved(with: event)
         applyReadOnlyCursor(for: event)
+        updateMarkerHover(with: event)
     }
 
     override func mouseEntered(with event: NSEvent) {

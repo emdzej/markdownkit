@@ -23,6 +23,12 @@ final class MarkdownUITextView: UITextView {
 
     // Table grid state; see `MarkdownUITextView+Tables.swift`.
     var tableOverlays: [Int: TableOverlayUIView] = [:]
+    /// The image / link bar; see `MarkerBar.swift`.
+    lazy var markerBar: MarkerBarPresenter = {
+        let presenter = MarkerBarPresenter()
+        presenter.textView = self
+        return presenter
+    }()
     var pendingTableOverlayUpdate = false
     var pendingTableFocus: TableCellFocus?
     private(set) lazy var keyboardKeeper: UITextField = {

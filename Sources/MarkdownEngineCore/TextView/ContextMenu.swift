@@ -17,6 +17,9 @@ extension NativeTextViewWrapper.Coordinator {
                   for event: NSEvent,
                   at charIndex: Int) -> NSMenu? {
         let customMenu = menu.copy() as? NSMenu ?? NSMenu()
+        for (offset, item) in markerMenuItems(for: textView, at: charIndex).enumerated() {
+            customMenu.insertItem(item, at: offset)
+        }
 
         if let fontIndex = customMenu.items.firstIndex(where: { $0.title == "Font" }) {
             customMenu.removeItem(at: fontIndex)
