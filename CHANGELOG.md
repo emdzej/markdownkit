@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- WYSIWYG tables (macOS): every GFM table is an editable grid. Click a cell
+- WYSIWYG tables (macOS and iOS): every GFM table is an editable grid. Click a cell
   to edit its raw inline markdown; Tab / Shift-Tab / Return / arrows move
   between cells (Tab past the last cell or Return in the last row adds a
   row), Esc discards. The context menu inserts, deletes, and moves rows and
@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source. Each committed change rewrites the table as normalized GFM in one
   undoable edit. Backed by the new `MarkdownTable` model (escape-aware
   parse / serialize, structural edits).
+  On iOS: tap to edit, long-press for the context menu, hardware-keyboard
+  Tab / arrows / Esc, Return moves down (`TableGridUIView`).
 - iOS / iPadOS support: the parser, styler, and renderer build for UIKit via
   platform aliases (`PlatformFont`, `PlatformColor`, ...), and
   `NativeTextViewWrapper` has a UIKit implementation (`TextView/UIKit/`).
@@ -36,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pendingInlineReplacement`, `onCaretRectChange`, `onInlineSelectionChange`.
 
 ### Changed
+- iOS programmatic edits (list continuation, checkbox taps, table writes)
+  go straight to the text storage with their own undo: `replace(_:withText:)`
+  applied smart dashes, turning a table's `---` into `—`.
+- System fonts are no longer looked up by their private names
+  (`.SFUI-Regular`), which UIKit resolved to Times after a restyle.
 - A table no longer reveals its raw source just because the caret is
   inside it (macOS); arrowing into a table focuses its grid instead.
 - Undo / redo now re-sync the `text` binding and restyle; AppKit applies

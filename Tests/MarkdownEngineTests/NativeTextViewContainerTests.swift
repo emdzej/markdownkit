@@ -6,11 +6,9 @@
 //  composition, and reading-column centering — headless (no window).
 //
 
+// AppKit-only: exercises the macOS view stack.
 #if os(macOS)
 import AppKit
-#else
-import UIKit
-#endif
 import Testing
 @testable import MarkdownEngineCore
 
@@ -159,3 +157,4 @@ struct NativeTextViewContainerTests {
         #expect(stack.textView.frame.origin.x == 0)
     }
 }
+#endif

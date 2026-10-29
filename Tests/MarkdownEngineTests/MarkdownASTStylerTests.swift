@@ -37,7 +37,9 @@ struct MarkdownASTStylerTests {
     @MainActor
     @Test("scoped styling == full styling, clipped to the edited paragraph")
     func scopedMatchesFullForEditedParagraph() {
+        #if os(macOS)
         _ = NSApplication.shared
+        #endif
         let text = "plain one\n\n**bold** in two `code`\n\n- item *x*\n\nhttps://example.com"
         let ns = text as NSString
         let para = ns.paragraphRange(for: NSRange(location: 13, length: 0))   // the `**bold**…` line

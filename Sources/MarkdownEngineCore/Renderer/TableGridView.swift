@@ -53,7 +53,10 @@ final class TableGridView: NSView, NSTextFieldDelegate {
         info.image.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
         if let cell = editingCell {
             NSColor.controlAccentColor.setStroke()
-            let ring = NSBezierPath(rect: info.layout.cellRect(row: cell.row, column: cell.column).insetBy(dx: 1, dy: 1))
+            // A field grown past its cell gets the ring around its full width.
+            var box = info.layout.cellRect(row: cell.row, column: cell.column)
+            if let field { box = box.union(CGRect(x: field.frame.minX, y: box.minY, width: field.frame.width, height: box.height)) }
+            let ring = NSBezierPath(rect: box.insetBy(dx: 1, dy: 1))
             ring.lineWidth = 2
             ring.stroke()
         }
@@ -107,8 +110,18 @@ final class TableGridView: NSView, NSTextFieldDelegate {
     }
 
     private func positionField(for cell: (row: Int, column: Int)) {
+        guard let field else { return }
         // NSTextField insets its text ~2pt; widen so field text lines up with the rendered text.
-        field?.frame = info.layout.contentRect(row: cell.row, column: cell.column).insetBy(dx: -2, dy: 0)
+        let textWidth = (field.stringValue as NSString).size(withAttributes: [.font: field.font as Any]).width + 8
+        field.frame = info.layout.editorFrame(
+            row: cell.row, column: cell.column, textWidth: textWidth,
+            alignment: info.table.alignments[cell.column]
+        ).insetBy(dx: -2, dy: 0)
+    }
+
+    func controlTextDidChange(_ notification: Notification) {
+        if let editingCell { positionField(for: editingCell) }
+        needsDisplay = true
     }
 
     /// Removes the field without writing its value back.

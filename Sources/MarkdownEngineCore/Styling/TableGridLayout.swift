@@ -78,6 +78,24 @@ struct TableGridLayout {
         )
     }
 
+    /// Frame for the cell editor: the cell's text area, widened to fit
+    /// `textWidth` (growing away from the alignment edge) but kept inside the table.
+    func editorFrame(row: Int, column: Int, textWidth: CGFloat, alignment: MarkdownTable.Alignment) -> CGRect {
+        var frame = contentRect(row: row, column: column)
+        let extra = ceil(textWidth) - frame.width
+        guard extra > 0 else { return frame }
+        switch alignment {
+        case .none, .left: frame.size.width += extra
+        case .right: frame.origin.x -= extra; frame.size.width += extra
+        case .center: frame.origin.x -= extra / 2; frame.size.width += extra
+        }
+        let inner = CGRect(origin: .zero, size: size).insetBy(dx: Self.borderWidth, dy: 0)
+        if frame.width > inner.width { return CGRect(x: inner.minX, y: frame.minY, width: inner.width, height: frame.height) }
+        if frame.minX < inner.minX { frame.origin.x = inner.minX }
+        if frame.maxX > inner.maxX { frame.origin.x = inner.maxX - frame.width }
+        return frame
+    }
+
     /// Cell under `point` (top-left-origin table coordinates); borders count
     /// toward the cell to their right / below.
     func cell(at point: CGPoint) -> (row: Int, column: Int)? {

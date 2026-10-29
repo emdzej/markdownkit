@@ -8,6 +8,8 @@
 //  participates in activation/unlock while the slack stays viewport-based.
 //
 
+// AppKit-only: the overscroll policy lives in the macOS view layer.
+#if os(macOS)
 import Foundation
 import Testing
 @testable import MarkdownEngineCore
@@ -72,3 +74,4 @@ struct BottomOverscrollPolicyTests {
         #expect(slack == 376)
     }
 }
+#endif

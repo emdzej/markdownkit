@@ -34,7 +34,7 @@ enum MarkdownASTStyler {
         scopedRanges: [NSRange]? = nil,
         configuration: MarkdownEditorConfiguration = .default
     ) -> [StyledRange] {
-        let baseFont = PlatformFont(name: fontName, size: fontSize) ?? .systemFont(ofSize: fontSize)
+        let baseFont = PlatformFont.md(named: fontName, size: fontSize)
         let baseLineHeight = ceil(baseFont.ascender - baseFont.descender + baseFont.leading)
         let baseParagraphSpacing = ceil(baseLineHeight * configuration.paragraph.spacingFactor)
         let codeFontSize = round(fontSize * configuration.codeBlock.fontSizeScale)
@@ -61,7 +61,7 @@ enum MarkdownASTStyler {
             codeFont: codeFont,
             codeBackground: configuration.services.syntaxHighlighter.backgroundColor(),
             codeParagraphStyle: codePara,
-            inlineMarkerFont: PlatformFont(name: fontName, size: hiddenSize) ?? .systemFont(ofSize: hiddenSize),
+            inlineMarkerFont: PlatformFont.md(named: fontName, size: hiddenSize),
             caret: caretLocation,
             config: configuration,
             scopedRanges: scopedRanges
@@ -272,8 +272,7 @@ enum MarkdownASTStyler {
 
         case .heading(let level, let range, let markers, let inlines):
             let multiplier = ctx.config.headings.fontMultiplier(for: level)
-            let headingBase = PlatformFont(name: ctx.fontName, size: ctx.baseFont.pointSize * multiplier)
-                ?? .systemFont(ofSize: ctx.baseFont.pointSize * multiplier)
+            let headingBase = PlatformFont.md(named: ctx.fontName, size: ctx.baseFont.pointSize * multiplier)
             let headingFont = adding(.bold, to: headingBase)
             let lineHeight = ceil(headingFont.ascender - headingFont.descender + headingFont.leading) + 1
             let headingPara = NSMutableParagraphStyle()

@@ -58,7 +58,7 @@ enum MarkdownStyler {
         let tokens = precomputedTokens ?? MarkdownTokenizer.parseTokensViaAST(in: text)
         let nsText = text as NSString
         let codeTokens = tokens.filter { $0.kind == .codeBlock || $0.kind == .inlineCode }
-        let baseFont = PlatformFont(name: fontName, size: fontSize) ?? PlatformFont.systemFont(ofSize: fontSize)
+        let baseFont = PlatformFont.md(named: fontName, size: fontSize)
         let baseDefaultLineHeight = ceil(
             layoutBridge?.defaultLineHeight(for: baseFont)
             ?? (baseFont.ascender - baseFont.descender + baseFont.leading)
@@ -74,8 +74,7 @@ enum MarkdownStyler {
             layoutBridge: layoutBridge,
             baseDefaultLineHeight: baseDefaultLineHeight,
             codeBackgroundColor: codeBackgroundColor,
-            latexMarkerFont: PlatformFont(name: fontName, size: hiddenMarkerSize)
-                ?? PlatformFont.systemFont(ofSize: hiddenMarkerSize),
+            latexMarkerFont: PlatformFont.md(named: fontName, size: hiddenMarkerSize),
             configuration: configuration
         )
 

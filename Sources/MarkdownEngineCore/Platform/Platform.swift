@@ -140,10 +140,25 @@ extension PlatformTextView {
         textStorage?.replaceCharacters(in: range, with: string)
         didChangeText()
         #else
-        guard let start = position(from: beginningOfDocument, offset: range.location),
-              let end = position(from: start, offset: range.length),
-              let textRange = textRange(from: start, to: end) else { return }
-        replace(textRange, withText: string)
+        // Write the storage directly: `replace(_:withText:)` runs the text
+        // through input processing (smart dashes turn a table's `---` into `—`).
+        let storage = textStorage
+        guard NSMaxRange(range) <= storage.length else { return }
+        let previous = storage.attributedSubstring(from: range).string
+        let inserted = NSRange(location: range.location, length: (string as NSString).length)
+        undoManager?.registerUndo(withTarget: self) { tv in
+            tv.mdReplace(inserted, with: previous)
+            // Undo/redo isn't a coordinator-driven edit: let it sync and restyle.
+            tv.delegate?.textViewDidChange?(tv)
+        }
+        let caret = selectedRange
+        storage.replaceCharacters(in: range, with: string)
+        // Keep the caret where it was relative to the edit.
+        if caret.location >= NSMaxRange(range) {
+            selectedRange = NSRange(location: caret.location - range.length + inserted.length, length: caret.length)
+        } else if caret.location > range.location {
+            selectedRange = NSRange(location: NSMaxRange(inserted), length: 0)
+        }
         #endif
     }
 }
@@ -315,5 +330,16 @@ public enum MarkdownPlatform {
     /// 0–1 sRGB components of `color`, or nil if it can't be converted.
     public static func rgb(_ color: PlatformColor) -> (r: CGFloat, g: CGFloat, b: CGFloat)? {
         color.mdRGB
+    }
+}
+
+extension PlatformFont {
+    /// Font by PostScript name, falling back to the system font. System
+    /// fonts report private names (`.SFUI-Regular`, `.AppleSystemUIFont`)
+    /// that `init(name:size:)` doesn't resolve reliably — UIKit returns
+    /// Times for them — so those map straight to the system font.
+    static func md(named name: String, size: CGFloat) -> PlatformFont {
+        if !name.hasPrefix("."), let font = PlatformFont(name: name, size: size) { return font }
+        return .systemFont(ofSize: size)
     }
 }

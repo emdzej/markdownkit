@@ -26,3 +26,24 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
+  MarkdownEngineDemoiOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [MarkdownEngineDemoiOSTests]
+    dependencies:
+      - target: MarkdownEngineDemoiOS
+      - package: MarkdownEngine
+        product: MarkdownEngine
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MarkdownEngineDemoiOS.app/MarkdownEngineDemoiOS"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  MarkdownEngineDemoiOS:
+    build:
+      targets:
+        MarkdownEngineDemoiOS: all
+    test:
+      targets: [MarkdownEngineDemoiOSTests]

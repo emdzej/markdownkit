@@ -10,6 +10,14 @@
 
 import Foundation
 
+/// A cell to focus in the table that starts at `tableLocation`, once that
+/// table's grid is (re-)rendered.
+struct TableCellFocus: Equatable {
+    var tableLocation: Int
+    var row: Int
+    var column: Int
+}
+
 enum TableGridMove {
     /// Tab: next cell, wrapping to the next row; past the last cell adds a row.
     case next

@@ -20,6 +20,10 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     var documentId: String?
 
     var isProgrammaticEdit = false
+    /// Start of the table shown as raw markdown ("Edit as Markdown"); nil
+    /// while every table is a grid.
+    var revealedTableLocation: Int?
+    private var tableRevealPolicy: MarkdownDetection.TableRevealPolicy { .only(revealedTableLocation) }
     private var lastSyncedText: String
     private var activeTokenIndices: Set<Int> = []
     private var previousCaretLocation: Int?
@@ -61,6 +65,8 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         if tv.text != text {
             tv.text = text
             tv.selectedRange = NSRange(location: 0, length: 0)
+            tv.pendingTableFocus = nil
+            revealedTableLocation = nil
         }
         lastSyncedText = text
         previousBacktickCount = text.components(separatedBy: "```").count - 1
@@ -76,7 +82,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         let full = NSRange(location: 0, length: ns.length)
         let tokens = tokens(for: string)
         activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(
-            selectionRange: tv.selectedRange, tokens: tokens, in: ns, suppressed: !tv.isEditable
+            selectionRange: tv.selectedRange, tokens: tokens, in: ns, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
 
         let storage = tv.textStorage
@@ -108,6 +114,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
             tlm.invalidateLayout(for: tlm.documentRange)
         }
         tv.setNeedsLayout()
+        tv.updateTableOverlays()
     }
 
     // MARK: Scoped restyle
@@ -125,6 +132,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
             precomputedTokens: tokens,
             configuration: configuration
         )
+        tv.updateTableOverlays()
     }
 
     private func paragraphs(of tokens: [MarkdownToken], indices: Set<Int>, in ns: NSString) -> [NSRange] {
@@ -171,7 +179,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         let string = tv.string
         let tokens = tokens(for: string)
         pendingPreEditActiveTokenIndices = MarkdownDetection.computeActiveTokenIndices(
-            selectionRange: tv.selectedRange, tokens: tokens, in: string as NSString, suppressed: !tv.isEditable
+            selectionRange: tv.selectedRange, tokens: tokens, in: string as NSString, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
         if MarkdownInputHandler.handleBlockLatexAutoWrap(
             textView: tv, affectedCharRange: range, replacementString: replacementText,
@@ -204,7 +212,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         let preEdit = pendingPreEditActiveTokenIndices ?? activeTokenIndices
         pendingPreEditActiveTokenIndices = nil
         activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(
-            selectionRange: caret, tokens: tokens, in: ns, suppressed: !tv.isEditable
+            selectionRange: caret, tokens: tokens, in: ns, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
 
         let backticks = string.components(separatedBy: "```").count - 1
@@ -235,13 +243,14 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     public func textViewDidChangeSelection(_ textView: UITextView) {
         guard let tv = textView as? MarkdownUITextView, !isProgrammaticEdit,
               tv.markedTextRange == nil, pendingEditedRange == nil else { return }
+        if routeSelectionThroughTableGrid(tv) { return }
         let string = tv.string
         let ns = string as NSString
         let sel = tv.selectedRange
         let tokens = tokens(for: string)
         let previous = activeTokenIndices
         activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(
-            selectionRange: sel, tokens: tokens, in: ns, suppressed: !tv.isEditable
+            selectionRange: sel, tokens: tokens, in: ns, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
 
         // Caret crossing in/out of task syntax or an HR line changes rendering
@@ -264,6 +273,53 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         if let prevParagraph { candidates.append(prevParagraph) }
         candidates += paragraphs(of: tokens, indices: activeTokenIndices.union(previous), in: ns)
         restyle(tv, paragraphs: candidates, tokens: tokens)
+    }
+
+    // MARK: Tables
+
+    private func tableToken(containing location: Int, in text: String) -> MarkdownToken? {
+        tokens(for: text).first {
+            $0.kind == .table && location >= $0.range.location && location <= NSMaxRange($0.range)
+        }
+    }
+
+    /// Re-renders a table whose source the grid just replaced.
+    func tableSourceDidChange(in tv: MarkdownUITextView, range: NSRange) {
+        textChanged(tv)
+        let ns = tv.string as NSString
+        guard NSMaxRange(range) <= ns.length else { return }
+        restyle(tv, paragraphs: [ns.paragraphRange(for: range)], tokens: tokens(for: tv.string))
+    }
+
+    /// Shows the table starting at `location` as raw markdown with the caret in it.
+    func revealTableSource(at location: Int, in tv: MarkdownUITextView) {
+        revealedTableLocation = location
+        tv.becomeFirstResponder()
+        tv.selectedRange = NSRange(location: location, length: 0)
+        if let token = tableToken(containing: location, in: tv.string) {
+            restyle(tv, paragraphs: [(tv.string as NSString).paragraphRange(for: token.range)], tokens: tokens(for: tv.string))
+        }
+    }
+
+    /// A caret landing in a table's hidden source moves into its grid; leaving
+    /// the revealed table turns it back into a grid. Returns true if it
+    /// handed focus to a grid.
+    private func routeSelectionThroughTableGrid(_ tv: MarkdownUITextView) -> Bool {
+        let selection = tv.selectedRange
+        let table = tableToken(containing: selection.location, in: tv.string)
+        if let revealed = revealedTableLocation, table?.range.location != revealed {
+            revealedTableLocation = nil
+            let ns = tv.string as NSString
+            if revealed < ns.length {
+                restyle(tv, paragraphs: [ns.paragraphRange(for: NSRange(location: revealed, length: 0))], tokens: tokens(for: tv.string))
+            }
+        }
+        // Only a caret the user is moving in the text view enters a grid.
+        guard tv.isFirstResponder, let table, selection.length == 0,
+              table.range.location != revealedTableLocation else { return false }
+        let fromBelow = (previousCaretLocation ?? 0) > NSMaxRange(table.range)
+        let rows = MarkdownTable(source: (tv.string as NSString).substring(with: table.range))?.rowCount ?? 1
+        return tv.focusTableCell(tableLocation: table.range.location, row: fromBelow ? rows - 1 : 0, column: 0)
     }
 
     public func textView(

@@ -176,7 +176,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         // Body compositing for the scroll-away header (clipsToBounds + redraw policy)
         // is applied by ScrollingHeaderController when a header is first supplied, so
         // header-less embedders keep AppKit's default rendering.
-        let font = PlatformFont(name: fontName, size: fontSize) ?? PlatformFont.systemFont(ofSize: fontSize)
+        let font = PlatformFont.md(named: fontName, size: fontSize)
         textView.font = font
         textView.baseFont = font
         textView.allowsUndo = true
@@ -371,7 +371,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             (nsView as? ClampedScrollView)?.clampToInsets()
         }
 
-        let font = PlatformFont(name: fontName, size: fontSize) ?? PlatformFont.systemFont(ofSize: fontSize)
+        let font = PlatformFont.md(named: fontName, size: fontSize)
         textView.font = font
         textView.baseFont = font
         textView.recalcOverscroll(for: nsView)

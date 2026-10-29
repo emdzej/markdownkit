@@ -6,11 +6,9 @@
 //  height, and removal — headless (no window).
 //
 
+// AppKit-only: exercises the macOS view stack.
 #if os(macOS)
 import AppKit
-#else
-import UIKit
-#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngineCore
@@ -208,3 +206,4 @@ struct ScrollingHeaderControllerTests {
         #expect(stack.container.subviews.count == 1)   // text view only
     }
 }
+#endif

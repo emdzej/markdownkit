@@ -20,7 +20,9 @@ import Testing
 struct TableCellTests {
 
     private func cell(_ raw: String, header: Bool = false) -> NSAttributedString {
+        #if os(macOS)
         _ = NSApplication.shared
+        #endif
         let cfg = MarkdownEditorConfiguration.default
         return MarkdownStyler.formattedCellString(
             raw, baseFont: PlatformFont.systemFont(ofSize: 14), header: header,

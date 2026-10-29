@@ -73,7 +73,9 @@ struct TableGridTests {
     }
 
     @Test func stylerAttachesRenderInfoForInactiveTables() throws {
+        #if os(macOS)
         _ = NSApplication.shared
+        #endif
         let ranges = MarkdownStyler.styleAttributes(
             text: doc, fontName: "Helvetica", fontSize: 14,
             caretLocation: 0, activeTokenIndices: []
@@ -85,5 +87,17 @@ struct TableGridTests {
         #expect(info.image.size == info.layout.size)
         // The grid overlay finds tables by their source ID on the anchor.
         #expect(ranges.contains { $0.1[.scrollableBlockSourceID] != nil })
+    }
+
+    @Test func editorGrowsAwayFromTheAlignmentEdgeWithinTheTable() {
+        let l = layout([["a", "b", "c"], ["1", "2", "3"]])
+        let cell = l.contentRect(row: 1, column: 1)
+        #expect(l.editorFrame(row: 1, column: 1, textWidth: 1, alignment: .left) == cell)
+        let left = l.editorFrame(row: 1, column: 1, textWidth: cell.width + 20, alignment: .left)
+        #expect(left.minX == cell.minX && left.width == cell.width + 20)
+        let right = l.editorFrame(row: 1, column: 1, textWidth: cell.width + 20, alignment: .right)
+        #expect(right.maxX == cell.maxX && right.width == cell.width + 20)
+        let huge = l.editorFrame(row: 1, column: 1, textWidth: 10_000, alignment: .center)
+        #expect(huge.minX >= 0 && huge.maxX <= l.size.width)
     }
 }

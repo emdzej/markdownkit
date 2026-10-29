@@ -10,13 +10,6 @@
 
 import AppKit
 
-/// A cell to focus in the table that starts at `tableLocation`.
-struct TableCellFocus: Equatable {
-    var tableLocation: Int
-    var row: Int
-    var column: Int
-}
-
 extension NativeTextView {
 
     var coordinator: NativeTextViewCoordinator? { delegate as? NativeTextViewCoordinator }

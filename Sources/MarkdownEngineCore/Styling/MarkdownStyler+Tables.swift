@@ -4,9 +4,9 @@
 //
 //  GFM tables. The table is parsed into a `MarkdownTable`, laid out by
 //  `TableGridLayout`, and rendered to an image; its source glyphs collapse
-//  to a single anchor line that reserves the table's height. Where the
-//  platform has an interactive table grid (macOS), every table is tagged for
-//  the overlay, which draws the image and edits cells in place. With the
+//  to a single anchor line that reserves the table's height. Every table is
+//  tagged for the platform's grid overlay (`TableGridView` / `TableGridUIView`),
+//  which draws the image and edits cells in place. With the
 //  caret inside the table ("Edit as Markdown"), the raw pipe source shows.
 //
 
@@ -20,13 +20,7 @@ import Foundation
 extension MarkdownStyler {
 
     /// Whether this platform overlays an editable grid on rendered tables.
-    static var tableGridSupported: Bool {
-        #if os(macOS)
-        true
-        #else
-        false
-        #endif
-    }
+    static var tableGridSupported: Bool { true }
 
     static func styleTables(_ ctx: StylingContext) -> [StyledRange] {
         var attrs: [StyledRange] = []

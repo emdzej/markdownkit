@@ -51,7 +51,9 @@ extension NativeTextViewCoordinator {
             }
         }
 
-        guard let table, selection.length == 0, table.range.location != revealedTableLocation else { return false }
+        // Only a caret the user is moving in the text view enters a grid.
+        guard textView.window?.firstResponder === textView, let table, selection.length == 0,
+              table.range.location != revealedTableLocation else { return false }
         // Coming from below → last row, otherwise → first row.
         let fromBelow = (previousCaretLocation ?? 0) > NSMaxRange(table.range)
         let row = fromBelow ? max(0, (MarkdownTable(source: (textView.string as NSString).substring(with: table.range))?.rowCount ?? 1) - 1) : 0

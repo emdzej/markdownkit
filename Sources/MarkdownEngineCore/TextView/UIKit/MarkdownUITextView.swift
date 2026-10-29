@@ -19,6 +19,17 @@ final class MarkdownUITextView: UITextView {
     /// Strongly held: NSTextLayoutManager.delegate is weak.
     private(set) var layoutDelegate = MarkdownLayoutManagerDelegate()
 
+    // Table grid state; see `MarkdownUITextView+Tables.swift`.
+    var tableOverlays: [Int: TableOverlayUIView] = [:]
+    var pendingTableOverlayUpdate = false
+    var pendingTableFocus: TableCellFocus?
+    private(set) lazy var keyboardKeeper: UITextField = {
+        let field = UITextField(frame: .zero)
+        field.isHidden = true
+        return field
+    }()
+    private var lastLayoutWidth: CGFloat = 0
+
     init() {
         super.init(frame: .zero, textContainer: nil)
         // Opt into TextKit 2 explicitly; UITextView falls back to TextKit 1 if
@@ -47,6 +58,15 @@ final class MarkdownUITextView: UITextView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Wide-table decisions and overlay frames depend on the column width.
+        if abs(bounds.width - lastLayoutWidth) > 0.5 {
+            lastLayoutWidth = bounds.width
+            (delegate as? MarkdownUICoordinator)?.rebuildAll(self)
+        }
+    }
 
     // MARK: Appearance
 
