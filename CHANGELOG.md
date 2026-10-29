@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `MarkdownEditorController`: pass one to `NativeTextViewWrapper(controller:)`
   to address that editor from outside: `insertText(_:actionName:)` replaces
-  the selection as one undoable edit, `selectedRange`, `focus()`. Unlike the
+  the selection as one undoable edit, `selectedRange`, `reveal(_:)` (select
+  and scroll to a range), `focus()`. Unlike the
   notification bus it targets a single editor.
 - Link preview cards: a standalone `[text](url){.preview}` (or any size
   attribute) renders as a card (`.small`, `.medium`, `.large`, `.full`;

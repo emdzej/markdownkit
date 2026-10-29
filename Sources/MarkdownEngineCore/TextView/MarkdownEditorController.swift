@@ -49,6 +49,18 @@ public final class MarkdownEditorController {
         textView.insertMarkdown(text, replacing: selection, actionName: actionName)
     }
 
+    /// Selects `range` (UTF-16, clamped) and scrolls it into view, e.g. to
+    /// jump to a heading from an outline.
+    public func reveal(_ range: NSRange) {
+        guard let textView else { return }
+        let length = (textView.string as NSString).length
+        let start = min(max(range.location, 0), length)
+        let clamped = NSRange(location: start, length: min(range.length, length - start))
+        textView.setSelectedRange(clamped)
+        textView.scrollRangeToVisible(clamped)
+        focus()
+    }
+
     /// Makes the editor first responder.
     public func focus() {
         #if os(macOS)

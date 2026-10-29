@@ -118,6 +118,9 @@ struct EditorControllerAppKitTests {
         controller.textView?.undoManager?.undo()
         try? await Task.sleep(for: .seconds(0.2))
         #expect(box.text == "Hello world")
+
+        controller.reveal(NSRange(location: 6, length: 99))
+        #expect(controller.selectedRange == NSRange(location: 6, length: 5))
     }
 }
 #endif
