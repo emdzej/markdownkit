@@ -13,7 +13,7 @@ import AppKit
 extension NativeTextViewCoordinator {
 
     var tableRevealPolicy: MarkdownDetection.TableRevealPolicy {
-        MarkdownStyler.tableGridSupported ? .only(revealedTableLocation) : .caret
+        MarkdownStyler.tableGridSupported && configuration.renderingMode == .formatted ? .only(revealedTableLocation) : .caret
     }
 
     /// The table token whose lines contain `location` (end of its last line included).
@@ -38,7 +38,8 @@ extension NativeTextViewCoordinator {
     /// Called on every selection change before restyling. Returns true when it
     /// moved focus into a table grid (the caller should stop processing).
     func routeSelectionThroughTableGrid(_ textView: NSTextView) -> Bool {
-        guard MarkdownStyler.tableGridSupported, let native = textView as? NativeTextView else { return false }
+        guard MarkdownStyler.tableGridSupported, configuration.renderingMode == .formatted,
+              let native = textView as? NativeTextView else { return false }
         let selection = textView.selectedRange()
         let table = tableToken(containing: selection.location, in: textView.string)
 

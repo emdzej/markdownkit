@@ -49,6 +49,7 @@ enum BlockLevelTokenizer {
         case .blockquote:  return blockquote(in: sub)
         case .table:       return table(in: sub)
         case .blockLatex:  return blockLatex(in: sub)
+        case .frontmatter: return frontmatter(in: sub)
         case .paragraph, .list, .thematicBreak, .blank:
             // Safety-net table scan; tables/block LaTeX are their own blocks now, inline `$$…$$` stays plain.
             return table(in: sub)
@@ -197,6 +198,25 @@ enum BlockLevelTokenizer {
             count += 1; k += 1
         }
         return count >= 1
+    }
+
+    // MARK: - Frontmatter (the block parser already found both fences)
+
+    private static func frontmatter(in s: NSString) -> [MarkdownToken] {
+        let open = line(in: s, from: 0)
+        // The closing fence is the block's last line.
+        var lastStart = s.length
+        if lastStart > 0, s.character(at: lastStart - 1) == lf { lastStart -= 1 }
+        if lastStart > 0, s.character(at: lastStart - 1) == cr { lastStart -= 1 }
+        while lastStart > 0, s.character(at: lastStart - 1) != lf, s.character(at: lastStart - 1) != cr { lastStart -= 1 }
+        guard lastStart >= open.nextStart else { return [] }
+        let close = line(in: s, from: lastStart)
+        return [MarkdownToken(
+            kind: .frontmatter,
+            range: NSRange(location: 0, length: close.contentEnd),
+            contentRange: NSRange(location: open.nextStart, length: lastStart - open.nextStart),
+            markerRanges: [NSRange(location: 0, length: open.contentEnd),
+                           NSRange(location: lastStart, length: close.contentEnd - lastStart)])]
     }
 
     // MARK: - Block LaTeX  (legacy `(?s)(?<!\$)\$\$(.+?)\$\$`)

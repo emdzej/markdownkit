@@ -102,7 +102,7 @@ extension NativeTextViewCoordinator {
             let text = textView.string
             let ns = text as NSString
             let paragraphs = MarkdownTokenizer.parseTokensViaAST(in: text)
-                .filter { $0.kind == .imageLink || ($0.kind == .link && $0.markerRanges.count > 4) }
+                .filter { $0.kind == .imageLink || $0.kind == .frontmatter || ($0.kind == .link && $0.markerRanges.count > 4) }
                 .map { ns.paragraphRange(for: $0.range) }
             guard !paragraphs.isEmpty else { return }
             self.restyleTextView(textView, paragraphCandidates: paragraphs)

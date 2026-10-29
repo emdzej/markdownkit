@@ -97,7 +97,7 @@ enum MarkdownASTStyler {
         }
         for block in blocks {
             switch block {
-            case .codeBlock(let range): ranges.append(range)
+            case .codeBlock(let range), .frontmatter(let range): ranges.append(range)
             case .paragraph(_, let inlines), .heading(_, _, _, let inlines), .blockquote(_, let inlines):
                 walk(inlines)
             case .list(_, let items):
@@ -301,8 +301,8 @@ enum MarkdownASTStyler {
             styleCodeBlock(range: range, ctx: ctx, into: &attrs)
         case .thematicBreak(let range):
             styleThematicBreak(range: range, ctx: ctx, into: &attrs)
-        case .blockLatex, .table, .blank:
-            break   // PlatformImage rendering ported next
+        case .blockLatex, .table, .blank, .frontmatter:
+            break   // rendered by the image passes (frontmatter: MarkdownStyler+Frontmatter)
         }
     }
 
@@ -496,7 +496,7 @@ enum MarkdownASTStyler {
             case .list(_, let items):
                 // Phase A: shrink only inline markers; the list marker is hidden by the bullet/task pass.
                 for item in items { shrinkInlineMarkers(item.inlines, ctx: ctx, into: &attrs) }
-            case .codeBlock, .blockLatex, .table, .thematicBreak, .blank:
+            case .codeBlock, .blockLatex, .table, .thematicBreak, .blank, .frontmatter:
                 break
             }
         }
@@ -543,7 +543,7 @@ enum MarkdownASTStyler {
 
     // MARK: - Helpers
 
-    private static func traits(for kind: EmphasisKind) -> PlatformFontDescriptor.SymbolicTraits {
+    static func traits(for kind: EmphasisKind) -> PlatformFontDescriptor.SymbolicTraits {
         switch kind {
         case .italic: return .italic
         case .bold: return .bold
@@ -551,7 +551,7 @@ enum MarkdownASTStyler {
         }
     }
 
-    private static func adding(_ extra: PlatformFontDescriptor.SymbolicTraits, to font: PlatformFont) -> PlatformFont {
+    static func adding(_ extra: PlatformFontDescriptor.SymbolicTraits, to font: PlatformFont) -> PlatformFont {
         let merged = font.fontDescriptor.symbolicTraits.union(extra)
         return PlatformFont.md(descriptor: font.fontDescriptor, traits: merged, size: font.pointSize) ?? font
     }

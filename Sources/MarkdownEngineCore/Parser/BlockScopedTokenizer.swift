@@ -119,24 +119,26 @@ extension MarkdownTokenizer {
 
     /// Cached block-relative tokens for `sub` (computed on miss); a pure memo over the token logic.
     private static func cachedBlockTokens(kind: BlockKind, sub: String) -> [MarkdownToken] {
+        // Frontmatter text could also occur as another kind's block; key it apart.
+        let key = kind == .frontmatter ? "\u{1}fm\u{1}" + sub : sub
         blockTokenLock.lock()
-        if let cached = blockTokenCache[sub] {
+        if let cached = blockTokenCache[key] {
             blockTokenLock.unlock()
             return cached
         }
         blockTokenLock.unlock()
 
         let blockLevel = BlockLevelTokenizer.tokens(for: kind, in: sub as NSString)
-        // Fenced code is opaque — no inline markup inside it.
-        let inline = kind == .fencedCode
+        // Fenced code and frontmatter are opaque — no inline markup inside.
+        let inline = kind == .fencedCode || kind == .frontmatter
             ? []
             : InlineASTAdapter.tokens(from: InlineParser.parse(sub))
         let computed = blockLevel + inline
 
         blockTokenLock.lock()
-        if blockTokenCache[sub] == nil {
-            blockTokenCache[sub] = computed
-            blockTokenOrder.append(sub)
+        if blockTokenCache[key] == nil {
+            blockTokenCache[key] = computed
+            blockTokenOrder.append(key)
             if blockTokenOrder.count > blockTokenCacheCap {
                 blockTokenCache[blockTokenOrder.removeFirst()] = nil
             }

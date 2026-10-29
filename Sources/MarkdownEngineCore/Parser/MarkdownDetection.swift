@@ -41,6 +41,14 @@ enum MarkdownDetection {
             }
             let start = token.range.location
             let end = NSMaxRange(token.range)
+            if token.kind == .frontmatter {
+                // A caret before the opening `---` (where a note opens) keeps it collapsed.
+                if (caretLocation > start && caretLocation <= end)
+                    || (selectionRange.length > 0 && NSIntersectionRange(selectionRange, token.range).length > 0) {
+                    indices.insert(index)
+                }
+                continue
+            }
             if selectionRange.length > 0 && (token.kind == .inlineLatex || token.kind == .blockLatex) && NSIntersectionRange(selectionRange, token.range).length > 0 {
                 indices.insert(index)
                 continue

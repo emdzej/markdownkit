@@ -35,6 +35,9 @@ enum MarkdownTokenKind {
     case table
     /// A CommonMark backslash escape; marker is the `\`, content the escaped literal char.
     case backslashEscape
+    /// YAML frontmatter opening the document. `markerRanges` are the two
+    /// fence lines (`---`, `---`/`...`), `contentRange` the lines between.
+    case frontmatter
 }
 
 struct MarkdownToken {

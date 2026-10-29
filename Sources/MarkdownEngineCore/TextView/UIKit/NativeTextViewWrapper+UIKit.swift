@@ -81,6 +81,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         let documentChanged = coordinator.documentId != documentId
         let fontChanged = coordinator.fontName != fontName || coordinator.fontSize != fontSize
         let editableChanged = tv.isEditable != isEditable
+        let modeChanged = coordinator.configuration.renderingMode != configuration.renderingMode
         let fingerprint = configuration.services.contentFingerprint
         let contentChanged = coordinator.lastContentFingerprint != nil && coordinator.lastContentFingerprint != fingerprint
         coordinator.lastContentFingerprint = fingerprint
@@ -94,6 +95,19 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         if documentChanged || tv.string != text {
             coordinator.load(text, into: tv)
             if documentChanged { tv.setContentOffset(.zero, animated: false) }
+        } else if modeChanged {
+            // Keep the line at the top of the viewport in place across the font change.
+            let top = tv.closestPosition(to: CGPoint(x: tv.textContainerInset.left + 1, y: tv.contentOffset.y + tv.textContainerInset.top + 1))
+            let topOffset = top.map { tv.caretRect(for: $0).minY - tv.contentOffset.y } ?? 0
+            coordinator.revealedTableLocation = nil
+            tv.removeAllTableOverlays()
+            coordinator.rebuildAll(tv)
+            if let top {
+                tv.layoutIfNeeded()
+                let y = tv.caretRect(for: top).minY - topOffset
+                let maxY = max(-tv.adjustedContentInset.top, tv.contentSize.height - tv.bounds.height + tv.adjustedContentInset.bottom)
+                tv.setContentOffset(CGPoint(x: tv.contentOffset.x, y: min(max(y, -tv.adjustedContentInset.top), maxY)), animated: false)
+            }
         } else if fontChanged || editableChanged || contentChanged {
             coordinator.rebuildAll(tv)
         }
