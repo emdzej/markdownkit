@@ -166,7 +166,7 @@ extension MarkdownStyler {
             }
             let textWidth = max(0, width - x - p)
             var y = p
-            if let subtitle {
+            if subtitle != nil {
                 if content.icon != nil {
                     iconRect = CGRect(x: x, y: y, width: iconSide, height: iconSide)
                 }
