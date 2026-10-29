@@ -161,41 +161,26 @@ final class TableGridView: NSView, NSTextFieldDelegate {
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         guard let cell = editingCell else { return false }
-        let table = info.table
-        let lastRow = table.rowCount - 1, lastColumn = table.columnCount - 1
+        let move: TableGridMove
         switch selector {
-        case #selector(NSResponder.insertTab(_:)):
-            if cell.column < lastColumn {
-                commitAndMove(to: (cell.row, cell.column + 1))
-            } else if cell.row < lastRow {
-                commitAndMove(to: (cell.row + 1, 0))
-            } else {
-                var grown = tableWithFieldValue()
-                grown.insertRow(at: grown.rowCount)
-                commitAndMove(to: (cell.row + 1, 0), table: grown, actionName: "Add Row")
-            }
-        case #selector(NSResponder.insertBacktab(_:)):
-            if cell.column > 0 {
-                commitAndMove(to: (cell.row, cell.column - 1))
-            } else if cell.row > 0 {
-                commitAndMove(to: (cell.row - 1, lastColumn))
-            }
-        case #selector(NSResponder.insertNewline(_:)):
-            if cell.row < lastRow {
-                commitAndMove(to: (cell.row + 1, cell.column))
-            } else {
-                var grown = tableWithFieldValue()
-                grown.insertRow(at: grown.rowCount)
-                commitAndMove(to: (cell.row + 1, cell.column), table: grown, actionName: "Add Row")
-            }
-        case #selector(NSResponder.moveUp(_:)):
-            if cell.row > 0 { commitAndMove(to: (cell.row - 1, cell.column)) } else { leaveTable(below: false, commit: true) }
-        case #selector(NSResponder.moveDown(_:)):
-            if cell.row < lastRow { commitAndMove(to: (cell.row + 1, cell.column)) } else { leaveTable(below: true, commit: true) }
+        case #selector(NSResponder.insertTab(_:)): move = .next
+        case #selector(NSResponder.insertBacktab(_:)): move = .previous
+        case #selector(NSResponder.insertNewline(_:)): move = .newline
+        case #selector(NSResponder.moveUp(_:)): move = .up
+        case #selector(NSResponder.moveDown(_:)): move = .down
         case #selector(NSResponder.cancelOperation(_:)):
             leaveTable(below: true, commit: false)
+            return true
         default:
             return false
+        }
+        switch tableWithFieldValue().outcome(of: move, fromRow: cell.row, column: cell.column) {
+        case .focus(let table, let row, let column, let actionName):
+            commitAndMove(to: (row, column), table: table, actionName: actionName)
+        case .exit(_, let below):
+            leaveTable(below: below, commit: true)
+        case .stay:
+            break
         }
         return true
     }
@@ -210,50 +195,32 @@ final class TableGridView: NSView, NSTextFieldDelegate {
 
     private func contextMenu(for cell: (row: Int, column: Int)) -> NSMenu {
         let menu = NSMenu()
-        func item(_ title: String, enabled: Bool = true, _ edit: @escaping (inout MarkdownTable) -> (row: Int, column: Int)?) {
-            let menuItem = TableMenuItem(title: title, action: #selector(runMenuEdit(_:)), keyEquivalent: "")
-            menuItem.target = self
-            menuItem.isEnabled = enabled
-            menuItem.edit = edit
-            menu.addItem(menuItem)
-        }
-        let r = cell.row, c = cell.column
-        let table = info.table
-        item("Insert Row Above", enabled: r > 0) { $0.insertRow(at: r); return (r, c) }
-        item("Insert Row Below") { $0.insertRow(at: r + 1); return (r + 1, c) }
-        item("Delete Row", enabled: r > 0) { $0.removeRow(r); return nil }
-        menu.addItem(.separator())
-        item("Insert Column Left") { $0.insertColumn(at: c); return (r, c) }
-        item("Insert Column Right") { $0.insertColumn(at: c + 1); return (r, c + 1) }
-        item("Delete Column", enabled: table.columnCount > 1) { $0.removeColumn(c); return nil }
-        menu.addItem(.separator())
-        item("Move Column Left", enabled: c > 0) { $0.moveColumn(c, to: c - 1); return nil }
-        item("Move Column Right", enabled: c < table.columnCount - 1) { $0.moveColumn(c, to: c + 1); return nil }
-        menu.addItem(.separator())
-        for (title, alignment) in [("Align Left", MarkdownTable.Alignment.left), ("Align Center", .center), ("Align Right", .right)] {
-            item(title) { $0.alignments[c] = alignment; return nil }
-            if table.alignments[c] == alignment || (alignment == .left && table.alignments[c] == .none) {
-                menu.items.last?.state = .on
+        for (index, group) in info.table.contextCommands(row: cell.row, column: cell.column).enumerated() {
+            if index > 0 { menu.addItem(.separator()) }
+            for command in group {
+                let item = TableMenuItem(title: command.title, action: #selector(runCommand(_:)), keyEquivalent: "")
+                item.target = self
+                item.isEnabled = command.isEnabled
+                item.state = command.isChecked ? .on : .off
+                item.command = command
+                menu.addItem(item)
             }
         }
-        menu.addItem(.separator())
-        let source = NSMenuItem(title: "Edit as Markdown", action: #selector(editAsMarkdown), keyEquivalent: "")
-        source.target = self
-        menu.addItem(source)
         return menu
     }
 
-    @objc private func runMenuEdit(_ sender: TableMenuItem) {
-        guard let edit = sender.edit else { return }
-        var table = tableWithFieldValue()
-        let focus = edit(&table)
-        commitAndMove(to: focus, table: table, actionName: sender.title)
-    }
-
-    @objc private func editAsMarkdown() {
-        commitAndMove(to: nil)
-        guard let textView else { return }
-        textView.coordinator?.revealTableSource(at: info.sourceRange.location, in: textView)
+    @objc private func runCommand(_ sender: TableMenuItem) {
+        guard let command = sender.command else { return }
+        switch command.action {
+        case .edit(let edit):
+            var table = tableWithFieldValue()
+            let focus = edit(&table)
+            commitAndMove(to: focus, table: table, actionName: command.title)
+        case .revealSource:
+            commitAndMove(to: nil)
+            guard let textView else { return }
+            textView.coordinator?.revealTableSource(at: info.sourceRange.location, in: textView)
+        }
     }
 }
 
@@ -274,6 +241,6 @@ final class TableCellField: NSTextField {
 }
 
 private final class TableMenuItem: NSMenuItem {
-    var edit: ((inout MarkdownTable) -> (row: Int, column: Int)?)?
+    var command: TableGridCommand?
 }
 #endif

@@ -105,3 +105,45 @@ struct MarkdownTableTests {
         #expect(t.rows == [["B"]])
     }
 }
+
+@Suite("Table grid navigation")
+struct TableGridNavigationTests {
+    private let t = MarkdownTable(header: ["a", "b"], alignments: [.none, .none], rows: [["1", "2"]])
+
+    @Test func tabWrapsAndGrowsAtTheEnd() {
+        #expect(t.outcome(of: .next, fromRow: 0, column: 0) == .focus(table: t, row: 0, column: 1, actionName: "Edit Table"))
+        #expect(t.outcome(of: .next, fromRow: 0, column: 1) == .focus(table: t, row: 1, column: 0, actionName: "Edit Table"))
+        guard case .focus(let grown, 2, 0, "Add Row") = t.outcome(of: .next, fromRow: 1, column: 1) else {
+            Issue.record("Tab past the last cell should add a row"); return
+        }
+        #expect(grown.rows == [["1", "2"], ["", ""]])
+    }
+
+    @Test func shiftTabStopsAtTheFirstCell() {
+        #expect(t.outcome(of: .previous, fromRow: 1, column: 0) == .focus(table: t, row: 0, column: 1, actionName: "Edit Table"))
+        #expect(t.outcome(of: .previous, fromRow: 0, column: 0) == .stay)
+    }
+
+    @Test func arrowsLeaveAtTheEdges() {
+        #expect(t.outcome(of: .up, fromRow: 0, column: 1) == .exit(table: t, below: false))
+        #expect(t.outcome(of: .down, fromRow: 1, column: 1) == .exit(table: t, below: true))
+        #expect(t.outcome(of: .down, fromRow: 0, column: 1) == .focus(table: t, row: 1, column: 1, actionName: "Edit Table"))
+    }
+
+    @Test func returnInTheLastRowAddsARowInTheSameColumn() {
+        guard case .focus(let grown, 2, 1, "Add Row") = t.outcome(of: .newline, fromRow: 1, column: 1) else {
+            Issue.record("Return in the last row should add a row"); return
+        }
+        #expect(grown.rowCount == 3)
+    }
+
+    @Test func contextCommandsRespectTheHeaderAndLastColumn() {
+        let flat = t.contextCommands(row: 0, column: 0).flatMap { $0 }
+        func enabled(_ title: String) -> Bool? { flat.first { $0.title == title }?.isEnabled }
+        #expect(enabled("Delete Row") == false)        // header row
+        #expect(enabled("Insert Row Above") == false)
+        #expect(enabled("Move Column Left") == false)
+        #expect(enabled("Delete Column") == true)
+        #expect(flat.first { $0.title == "Align Left" }?.isChecked == true)   // .none renders left
+    }
+}
