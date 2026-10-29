@@ -27,6 +27,22 @@ extension MarkdownUITextView {
         }
     }
 
+    /// Moves existing overlays to where their tables are now laid out. Cheap
+    /// (no layout forced, no redraw), so it runs on every layout pass.
+    func repositionTableOverlays() {
+        guard let bridge = layoutBridge else { return }
+        let storage = textStorage
+        storage.enumerateAttribute(.scrollableBlockSourceID, in: NSRange(location: 0, length: storage.length)) { value, anchor, _ in
+            guard let sourceID = value as? Int, let overlay = tableOverlays[sourceID] else { return }
+            let anchorRect = bridge.boundingRect(forCharacterRange: anchor, in: textContainer)
+            guard !anchorRect.isEmpty else { return }
+            let origin = CGPoint(x: textContainerInset.left + anchorRect.minX, y: textContainerInset.top + anchorRect.minY)
+            if abs(overlay.frame.minY - origin.y) > 0.5 || abs(overlay.frame.minX - origin.x) > 0.5 {
+                overlay.frame.origin = origin
+            }
+        }
+    }
+
     /// Creates, positions, and removes overlays to match the `.tableRenderInfo` attributes.
     func performTableOverlayUpdate() {
         guard let bridge = layoutBridge, let tlm = textLayoutManager,

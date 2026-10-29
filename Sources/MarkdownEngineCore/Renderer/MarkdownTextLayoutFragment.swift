@@ -551,8 +551,12 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
             let descent = max(0, -font.descender)
             let fontHeight = max(1, ceil(ascent + descent))
             let markerWidth = ("[ ]" as NSString).size(withAttributes: [.font: font]).width
-            let size = max(1.0, min(floor(fontHeight * 1.2), floor(markerWidth * 1.2)))
-            let boxX = pos.x + max(0, (markerWidth - size) / 2)
+            let style = textLayoutManager?.mdHost?.configuration.checkbox ?? .default
+            let size = max(1.0, min(floor(fontHeight * style.sizeFromFontHeightFactor),
+                                    floor(markerWidth * style.sizeFromMarkerWidthFactor)))
+            // A box wider than `[ ]` grows to the left, into the hidden `- `,
+            // so it never covers the item's text.
+            let boxX = size > markerWidth ? pos.x + markerWidth - size : pos.x + (markerWidth - size) / 2
             let centerY = pos.baselineY + (descent - ascent) / 2
             let boxY = centerY - size / 2
 

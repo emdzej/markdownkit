@@ -77,6 +77,10 @@ final class MarkdownUITextView: UITextView {
             lastLayoutWidth = bounds.width
             (delegate as? MarkdownUICoordinator)?.rebuildAll(self)
         }
+        // Text above a table can change height without a restyle of the table
+        // (an image switching to its source line, lazy layout finishing), which
+        // left grids floating over the wrong text until the next tap.
+        if !tableOverlays.isEmpty { repositionTableOverlays() }
     }
 
     // MARK: Appearance
@@ -104,8 +108,10 @@ final class MarkdownUITextView: UITextView {
         var hit: (NSRange, Bool)?
         storage.enumerateAttribute(.taskCheckbox, in: NSRange(location: 0, length: storage.length)) { value, range, stop in
             guard let checked = value as? Bool else { return }
-            // Generous touch target: Apple HIG minimum is 44pt.
-            let rect = bridge.boundingRect(forCharacterRange: range, in: textContainer).insetBy(dx: -12, dy: -8)
+            // A 44 pt target (HIG minimum) centred on the drawn box: the `[ ]`
+            // characters themselves are shrunk under it, so their rect is tiny.
+            let box = bridge.boundingRect(forCharacterRange: range, in: textContainer)
+            let rect = CGRect(x: box.midX - 22, y: box.midY - 22, width: 44, height: 44).union(box)
             if rect.contains(containerPoint) {
                 hit = (range, checked)
                 stop.pointee = true

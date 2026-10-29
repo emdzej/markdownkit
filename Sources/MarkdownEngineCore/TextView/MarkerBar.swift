@@ -309,6 +309,19 @@ struct MarkerBarView: View {
     let tint: Color
     let apply: (MarkerAction) -> Void
 
+    // Touch sizes on iPhone / iPad (44 pt targets per the HIG); compact on the Mac.
+    #if os(iOS)
+    private static let control: CGFloat = 40
+    private static let symbolSize: CGFloat = 17
+    private static let letterFont: Font = .body.weight(.semibold)
+    private static let padding: CGFloat = 4
+    #else
+    private static let control: CGFloat = 24
+    private static let symbolSize: CGFloat = 11
+    private static let letterFont: Font = .caption.weight(.semibold)
+    private static let padding: CGFloat = 3
+    #endif
+
     var body: some View {
         HStack(spacing: 2) {
             switch content.mode {
@@ -325,16 +338,16 @@ struct MarkerBarView: View {
             case .link:
                 Button { apply(.preview(true)) } label: {
                     Label("Preview Card", systemImage: "text.below.photo")
-                        .font(.caption.weight(.medium))
+                        .font(Self.control > 30 ? .subheadline.weight(.medium) : .caption.weight(.medium))
                         .padding(.horizontal, 8)
-                        .frame(height: 24)
+                        .frame(height: Self.control)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Show as Preview Card")
             }
         }
-        .padding(3)
+        .padding(Self.padding)
         .background(.regularMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
@@ -350,8 +363,8 @@ struct MarkerBarView: View {
             } else {
                 Button { apply(.size(size == content.size && original ? nil : size)) } label: {
                     Text(Self.letter(size))
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 24, height: 24)
+                        .font(Self.letterFont)
+                        .frame(width: Self.control, height: Self.control)
                         .background(selected ? tint.opacity(0.2) : .clear, in: Circle())
                         .foregroundStyle(selected ? tint : .primary)
                         .contentShape(Circle())
@@ -372,14 +385,14 @@ struct MarkerBarView: View {
     }
 
     private var separator: some View {
-        Divider().frame(height: 16).padding(.horizontal, 2)
+        Divider().frame(height: Self.control * 0.6).padding(.horizontal, 2)
     }
 
     private func button(_ title: String, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
-                .frame(width: 24, height: 24)
+                .font(.system(size: Self.symbolSize, weight: .semibold))
+                .frame(width: Self.control, height: Self.control)
                 .background(selected ? tint.opacity(0.2) : .clear, in: Circle())
                 .foregroundStyle(selected ? tint : .primary)
                 .contentShape(Circle())

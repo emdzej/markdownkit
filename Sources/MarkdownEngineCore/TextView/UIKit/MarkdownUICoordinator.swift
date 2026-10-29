@@ -248,6 +248,8 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     public func textViewDidChangeSelection(_ textView: UITextView) {
         (textView as? MarkdownUITextView)?.markerBar.selectionDidChange()
         (textView as? MarkdownUITextView)?.editorController?.refreshBlockStyle()
+        // Revealing / collapsing source above a table moves it.
+        (textView as? MarkdownUITextView)?.updateTableOverlays()
         guard let tv = textView as? MarkdownUITextView, !isProgrammaticEdit,
               tv.markedTextRange == nil, pendingEditedRange == nil else { return }
         if routeSelectionThroughTableGrid(tv) { return }
