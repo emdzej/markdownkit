@@ -24,6 +24,11 @@ import Foundation
 import Testing
 @testable import MarkdownEngineCore
 
+/// The timed assertions run locally, not on CI (`CI` is set there): the same
+/// parser reads 5x on an idle Mac and above the bound on a contended runner.
+/// Upstream's #146 replaces timing with counted work; that's still to port.
+private let timingTestsEnabled = ProcessInfo.processInfo.environment["CI"] == nil
+
 @Suite("Inline parse cost vs. span density")
 struct InlineSpanDensityTests {
 
@@ -109,18 +114,18 @@ struct InlineSpanDensityTests {
         #expect(growth < 8, "\(label): 6x spans cost \(String(format: "%.1f", growth))x parse")
     }
 
-    @Test("code spans: parse cost is linear in spans per paragraph")
+    @Test("code spans: parse cost is linear in spans per paragraph", .enabled(if: timingTestsEnabled, "wall-clock ratios are unstable on shared CI runners"))
     func codeSpanDensity() { expectLinearInSpans("code") { "`word\($0)`" } }
 
-    @Test("links: parse cost is linear in spans per paragraph")
+    @Test("links: parse cost is linear in spans per paragraph", .enabled(if: timingTestsEnabled, "wall-clock ratios are unstable on shared CI runners"))
     func linkDensity() { expectLinearInSpans("links") { "[word\($0)](https://e.com/\($0))" } }
 
-    @Test("emphasis: parse cost is linear in spans per paragraph")
+    @Test("emphasis: parse cost is linear in spans per paragraph", .enabled(if: timingTestsEnabled, "wall-clock ratios are unstable on shared CI runners"))
     func emphasisDensity() { expectLinearInSpans("emphasis") { "*word\($0)*" } }
 
     /// The pathological case the issue was filed from: escapes and code spans
     /// together, where every later pass used to rescan every claimed range.
-    @Test("a paragraph mixing claimed-span kinds stays linear")
+    @Test("a paragraph mixing claimed-span kinds stays linear", .enabled(if: timingTestsEnabled, "wall-clock ratios are unstable on shared CI runners"))
     func mixedDensity() {
         expectLinearInSpans("mixed") { i in
             switch i % 4 {
