@@ -1,0 +1,21 @@
+MarkdownKit
+Copyright 2026 Michał Jaskólski
+
+This product is derived from swift-markdown-engine
+(https://github.com/nodes-app/swift-markdown-engine),
+Copyright 2026 Luca Chen and the swift-markdown-engine contributors,
+licensed under the Apache License, Version 2.0.
+
+MarkdownKit diverged from it in June 2026 (at commit faa7b04). Since then it
+has been changed substantially: an iOS / iPadOS editor, a split into a core
+module and a dynamic wrapper, WYSIWYG tables, table formulas, a Markdown
+source mode, frontmatter chips, image and link attributes, link preview
+cards, HTML export, checklists, find and replace, a formatting API and
+theming. Wiki-links and wiki embeds were removed. The git history records
+every change, file by file.
+
+Third-party components used by the optional products:
+- HighlighterSwift (MIT), which includes highlight.js (BSD 3-Clause),
+  used by MarkdownEngineCodeBlocks.
+- SwiftMath (MIT), with its math fonts under the SIL Open Font License and
+  the GUST Font License, used by MarkdownEngineLatex.

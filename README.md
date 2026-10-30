@@ -1,66 +1,60 @@
-<p align="center">                                                                                               
-<img width="128" alt="MDE-iOS-Default-1024x1024@1x" src="https://github.com/user-attachments/assets/88905708-9336-4cfe-8ce8-2be20866e89f" />
-</p>
-
-<h1 align="center">SwiftMarkdownEngine</h1>  
+<h1 align="center">MarkdownKit</h1>
 
 <p align="center">
   <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift&logoColor=white" alt="Swift 5.9+" /></a>
-  <a href="https://developer.apple.com/macos/"><img src="https://img.shields.io/badge/Platforms-macOS%2014+-lightgrey" alt="Platforms macOS 14+" /></a>
+  <img src="https://img.shields.io/badge/Platforms-macOS%2014+%20%7C%20iOS%2017+-lightgrey" alt="Platforms: macOS 14+, iOS 17+" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-yellow.svg" alt="License: Apache 2.0" /></a>
-  <a href="https://github.com/nodes-app/swift-markdown-engine/actions/workflows/ci.yml"><img src="https://github.com/nodes-app/swift-markdown-engine/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/emdzej/markdownkit/actions/workflows/ci.yml"><img src="https://github.com/emdzej/markdownkit/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
 
+A native Markdown editor for macOS (AppKit) and iOS / iPadOS (UIKit), built on TextKit 2 and bridged to
+SwiftUI. Formatting renders in place and the markers come back on the line you're editing, so the
+document reads like a rich-text page and stays plain CommonMark + GFM on disk. The bytes are never
+rewritten behind your back.
 
-
-<video src="https://github.com/user-attachments/assets/b61ed622-0e9a-4e91-9de5-9cd6c53752e5"
-       autoplay loop muted playsinline
-       width="100%">
-</video>
-
-
-A native Markdown editor for macOS (AppKit) and iOS / iPadOS (UIKit), built on
-TextKit 2 and bridged to SwiftUI. Live styling, fenced code blocks with syntax
-highlighting, LaTeX rendering, images, and GitHub-style task checkboxes. The
-text on disk is plain CommonMark + GFM.
-
-## Motivation
-
-When we started building **[Nodes](https://apps.apple.com/de/app/nodes-by-the-werk/id6745401961)** a minimal, beautiful, and fast writing app for macOS, we thought the editor would be the easy part. We were wrong. None of the existing open-source options fit what we needed: a native editor we could drop straight into a Mac app. So we built it on top of TextKit 2. It [wasn't easy](https://blog.krzyzanowskim.com/2025/08/14/textkit-2-the-promised-land/), but the result holds up in production. We're sharing it because we wished something like this had existed when we started.
+MarkdownKit is the editor of [Notes my Way](https://notesmyway.emdzej.pl). It started as a fork of
+[swift-markdown-engine](https://github.com/nodes-app/swift-markdown-engine) and has since grown into a
+separate engine, with iOS support, editable tables with formulas and a formatting API (see
+[Origins](#origins)).
 
 ## Features
 
-- **Live Markdown styling** — bold, italic, strikethrough, headings, lists, blockquotes, GFM tables, code, links, task checkboxes, horizontal rules
-- **WYSIWYG tables** (macOS and iOS) — edit GFM tables as a grid: cell editing, Tab/Return navigation, row/column/alignment context menu, "Edit as Markdown"; the file stays a plain pipe table
-- **Images** — standard Markdown `![alt](source)`, embedder supplies the bytes; `{…}` attributes set size and alignment (`{.small}`, `{.icon}`, `{width=320 .center}`)
-- **LaTeX** — both block (`$$ … $$`) and inline (`$…$`), embedder supplies
-  the renderer
-- **Link preview cards** — `[text](url){.preview}` renders a card in four sizes from metadata you supply
-- **File drops** — dropped files go to your `onDropFiles` hook, which stores them and returns the link to insert
-- **Code blocks** with embedder-supplied syntax highlighting and overlayable
-  copy buttons
-- **Reading column** — opt-in fixed-width centered column, wide tables
-  break out to the full window width (`readingWidth`)
-- **Scroll-away header** — host your own SwiftUI view above the document;
-  it scrolls with the content and collapses to a pinned top row
-- **TextKit 2** layout for accurate, modern text rendering
-- **Writing Tools** integration on macOS 15.1+
-- **Comfortable bottom overscroll** so the caret never pins to the viewport
-  edge while typing
-- **Drag-select autoscroll boost** for long documents
-- **Spelling & grammar** with code/LaTeX/link suppression
+- **Blend editing**: headings, emphasis, lists, quotes, code, links and rules are styled in place; the
+  markers fold away off the caret's line and come back on it
+- **Markdown source mode**: every character visible, monospaced, with syntax colours (`renderingMode = .source`)
+- **WYSIWYG tables** on both platforms: a grid with cell editing, Tab / Return navigation, hover markers to add
+  rows and columns, row and column handle menus, drag-to-resize columns (`{cols="…"}` after the table) and
+  "Edit as Markdown"; the file stays a pipe table
+- **Table formulas**: `[?](#SUM(B1:B4))` cells computed live, with the syntax and functions of
+  [vitepress-plugin-markdownformula](https://github.com/emdzej/vitepress-plugin-markdownformula)
+- **Frontmatter** shown as chips in formatted mode
+- **Images** with `{…}` attributes for size and alignment (`{.small}`, `{.icon}`, `{width=320 .center}`); the
+  embedder supplies the bytes
+- **Link preview cards**: `[text](url){.preview}` in four sizes, from metadata the embedder supplies
+- **Checklists**: tappable boxes (round or square, sized for touch on iOS), check / uncheck all, move checked
+  items to the bottom
+- **Formatting API**: `MarkdownEditorController` toggles inline styles, sets block styles, indents, inserts
+  tables and edits table cells, for toolbars, menus and keyboard bars
+- **Find and replace**: the macOS find bar and the iOS find interaction
+- **HTML export** (`MarkdownHTML`): the same parse as the editor, for printing and PDF
+- **Theming**: colours for text, headings, links, code, quotes, rules, tables, selection, caret and chips,
+  heading fonts, and the source view's colours
+- **Code blocks** with pluggable syntax highlighting, and **LaTeX** (block and inline) with a pluggable renderer
+- **File drops**: dropped files go to an `onDropFiles` hook that stores them and returns the link to insert
+- **Reading column**, **scroll-away header**, comfortable bottom overscroll, spelling and grammar with
+  code / LaTeX / link suppression, and Writing Tools on macOS 15.1+
 
 ## Installation
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/nodes-app/swift-markdown-engine", from: "0.1.0")
+    .package(url: "https://github.com/emdzej/markdownkit", branch: "main")
 ],
 targets: [
     .target(
         name: "YourApp",
         dependencies: [
-            .product(name: "MarkdownEngine", package: "swift-markdown-engine"),
+            .product(name: "MarkdownEngine", package: "markdownkit"),
         ]
     )
 ]
@@ -68,13 +62,14 @@ targets: [
 
 Or in Xcode: **File → Add Package Dependencies…** and paste the repo URL.
 
-The package ships three library products — add only what you need:
+The package ships three library products (they keep their `MarkdownEngine` names, so they don't clash
+with other packages called MarkdownKit). Add only what you need:
 
 | Product | Use when |
 |---|---|
-| `MarkdownEngine` | You want the editor only. Zero external dependencies. |
-| `MarkdownEngineCodeBlocks` | You want the full visual code-block experience — background fill, monospace font, and syntax highlighting — without writing your own bridge. Pulls in [HighlighterSwift](https://github.com/smittytone/HighlighterSwift) transitively. See [Customization → Code Blocks](#code-blocks). |
-| `MarkdownEngineLatex` | You want LaTeX formula rendering without writing your own bridge. Pulls in [SwiftMath](https://github.com/mgriebling/SwiftMath) transitively. See [Customization → LaTeX Rendering](#latex-rendering). |
+| `MarkdownEngine` | You want the editor only. No external dependencies. |
+| `MarkdownEngineCodeBlocks` | You want code blocks with a background, a monospaced font and syntax highlighting without writing your own bridge. Pulls in [HighlighterSwift](https://github.com/smittytone/HighlighterSwift). See [Code Blocks](#code-blocks). |
+| `MarkdownEngineLatex` | You want LaTeX rendering without writing your own bridge. Pulls in [SwiftMath](https://github.com/mgriebling/SwiftMath). See [LaTeX Rendering](#latex-rendering). |
 
 ## Quick Start
 
@@ -84,18 +79,20 @@ import MarkdownEngine
 
 struct EditorScreen: View {
     @State private var text: String = "# Hello, *world*"
+    @State private var controller = MarkdownEditorController()
 
     var body: some View {
-        NativeTextViewWrapper(text: $text)
+        NativeTextViewWrapper(text: $text, controller: controller)
+            .toolbar {
+                Button("Bold") { controller.toggle(.bold) }
+                Button("Checklist") { controller.setBlockStyle(.task) }
+            }
     }
 }
 ```
 
-That's it. See [Customization](#customization) below for syntax
-highlighting, themes, and more.
-
-> **Displaying multiple editors?** Pass a stable, unique
-> `documentId: "your-doc-id"` so undo history stays scoped to each editor instance.
+The same `NativeTextViewWrapper` works on macOS and iOS. When several editors are on screen, pass a
+stable `documentId:` to each so undo history stays scoped to its document.
 
 ## Customization
 
@@ -346,53 +343,38 @@ NativeTextViewWrapper(
 
 The demo app's **Header** toolbar toggle shows the full behavior.
 
+
 ## Demo
 
-A runnable SwiftUI demo lives in [`Demo/`](Demo/MarkdownEngineDemo.xcodeproj).
-Open it in Xcode and hit **Run** — the demo references the package via
-a local path, so any engine edit rebuilds into the demo on the next run.
+Runnable demos live in [`Demo/`](Demo): `MarkdownEngineDemo.xcodeproj` for macOS, and `Demo/iOS` for
+iPhone and iPad (run `xcodegen` there first). Both reference the package by a local path, so engine edits
+rebuild into the demo on the next run.
 
-> If you're seeing a "missing package product" error, it's almost always
-> stale package cache. Use **File → Packages → Reset Package Caches**
-> once and rebuild.
+## Requirements
 
-## Documentation
+- macOS 14 or later (15.1+ for Writing Tools), iOS / iPadOS 17 or later
+- Swift 5.9 / Xcode 15 or later; CI builds with Xcode 26
 
-Full API documentation is available via DocC. In Xcode, use
-**Product → Build Documentation** (`⇧⌃⌘D`).
-
-For local CLI preview, temporarily add the Swift DocC plugin as described in
-[CONTRIBUTING.md](CONTRIBUTING.md), then run:
-
-```bash
-swift package --disable-sandbox preview-documentation --target MarkdownEngine
-```
-
-Once the package is hosted on Swift Package Index, the docs will live at
-`https://swiftpackageindex.com/nodes-app/swift-markdown-engine/documentation`.
-
-## Requirements & Status
-
-- macOS 14 or later (15.1+ for Apple Writing Tools integration)
-- Swift 5.9 / Xcode 15 or later
-
-MarkdownEngine is currently **pre-1.0**. The public API may change between
-minor releases as it stabilizes. Production use is fine — pin a specific
-version (`0.x.y`) in your `Package.swift`.
+The API is pre-1.0 and changes as Notes my Way needs it. Pin a commit if you depend on it.
 
 ## Contributing
 
-Bug reports, ideas, and pull requests are welcome.
+Bug reports, ideas and pull requests are welcome.
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — codemap and pipeline guide for
-  contributors
-- [CONTRIBUTING.md](CONTRIBUTING.md) — setup, PR process, and design
-  constraints
+- [ARCHITECTURE.md](ARCHITECTURE.md): the codemap and the parse → style → render pipeline
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, tests and design constraints
+
+## Origins
+
+MarkdownKit began as a fork of [swift-markdown-engine](https://github.com/nodes-app/swift-markdown-engine)
+by Luca Chen and contributors, the editor of [Nodes](https://apps.apple.com/app/id6745401961), at commit
+`faa7b04` (June 2026). It's a separate project now, with its own direction: iOS support, tables with
+formulas, source mode and the formatting API are new, and wiki-links are gone. The original's TextKit 2
+foundation (the parser, the styler and the layout fragments) is still at its heart. Thank you to its
+authors for sharing it.
+
+Fixes from the original are ported selectively. See [NOTICE](NOTICE) for attribution.
 
 ## License
 
-MarkdownEngine is released under the Apache 2.0 License. See [LICENSE](LICENSE)
-for the full text.
-
----
-Built by small team from Germany. Day-to-day on [Instagram](https://www.instagram.com/nodes.app).
+Apache 2.0, the same as the original. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

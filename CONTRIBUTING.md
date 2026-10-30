@@ -12,8 +12,8 @@ first so we can talk through the design.
 ## Development setup
 
 ```bash
-git clone https://github.com/nodes-app/swift-markdown-engine.git
-cd swift-markdown-engine
+git clone https://github.com/emdzej/markdownkit.git
+cd markdownkit
 swift build
 swift test
 ```

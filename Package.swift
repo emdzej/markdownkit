@@ -1,7 +1,8 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
-// MarkdownEngine — a TextKit-2 backed Markdown editor view for macOS.
+// MarkdownKit — a TextKit 2 Markdown editor for macOS and iOS / iPadOS.
+// The modules keep their MarkdownEngine names.
 //
 // To produce a dynamic `MarkdownEngine` product (needed so consumers'
 // binaries don't end up with statically-merged SwiftUI/SwiftUICore symbol
@@ -12,7 +13,7 @@ import PackageDescription
 //
 // Embedders continue to `import MarkdownEngine` exactly as before.
 let package = Package(
-    name: "MarkdownEngine",
+    name: "MarkdownKit",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(name: "MarkdownEngine", type: .dynamic, targets: ["MarkdownEngine"]),
