@@ -41,6 +41,10 @@ extension NativeTextViewCoordinator {
         }
         lastSyncedText = text
         let nsDisplay = displayText as NSString
+        // Fresh document baseline for the fence census: a stale count from the
+        // previous document forced a spurious full-document restyle on the
+        // first keystroke. (Ported from swift-markdown-engine #96.)
+        previousBacktickCount = MarkdownDetection.tripleBacktickCount(in: nsDisplay)
         let fullRange = NSRange(location: 0, length: nsDisplay.length)
 
         let (baseFont, paragraph) = TextStylingService.makeBaseFontAndStyle(
@@ -210,9 +214,24 @@ extension NativeTextViewCoordinator {
         }
     }
 
+    /// Parse of `text`, which must be the text view's current text (every caller
+    /// passes `textView.string`).
     func parsedDocument(for text: String) -> ParsedDocument {
-        if cachedParsedText == text, let cachedParsedDocument {
-            return cachedParsedDocument
+        let length = (text as NSString).length
+        let storage = textView?.textStorage
+        storageEdits.track(storage)
+        if let cachedParsedDocument, cachedParsedLength == length {
+            // O(1) hit: no character edit reached the storage since the cached parse.
+            if storageEdits.tracks(storage), cachedParseGeneration == storageEdits.generation {
+                return cachedParsedDocument
+            }
+            // Edited (or untracked) but possibly identical text, e.g. a rebuild that
+            // re-set the same string: confirm with NSString.isEqual, a UTF-16 compare,
+            // instead of the bridged Swift `==` (Unicode-normalizing, ~10x slower).
+            if let cachedParsedText, (cachedParsedText as NSString).isEqual(to: text) {
+                cachedParseGeneration = storageEdits.generation
+                return cachedParsedDocument
+            }
         }
 
         let tokens = MarkdownTokenizer.parseTokensViaAST(in: text)
@@ -244,6 +263,8 @@ extension NativeTextViewCoordinator {
             blockLatexTokens: blockLatexTokens
         )
         cachedParsedText = text
+        cachedParsedLength = length
+        cachedParseGeneration = storageEdits.generation
         cachedParsedDocument = parsed
         return parsed
     }

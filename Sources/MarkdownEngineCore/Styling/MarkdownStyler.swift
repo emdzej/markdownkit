@@ -33,8 +33,20 @@ extension MarkdownStyler {
         let codeBackgroundColor: PlatformColor
         let latexMarkerFont: PlatformFont
         let configuration: MarkdownEditorConfiguration
+        /// Bounding range of the restyle's scoped paragraphs; nil = whole document.
+        var scopeBounds: NSRange? = nil
 
         var services: MarkdownEditorServices { configuration.services }
+
+        /// Whether a token can reach the restyle scope. The apply loop clips every
+        /// styled range to the scoped paragraphs (which are whole paragraphs), so a
+        /// token outside their bounding range emits nothing that survives — and its
+        /// rendering work (LaTeX, tables, previews, chips) is pure waste on every
+        /// keystroke. (Ported from swift-markdown-engine #96.)
+        func inScope(_ range: NSRange) -> Bool {
+            guard let scopeBounds else { return true }
+            return range.location < NSMaxRange(scopeBounds) && NSMaxRange(range) > scopeBounds.location
+        }
     }
 }
 
@@ -158,7 +170,8 @@ enum MarkdownStyler {
             baseDefaultLineHeight: baseDefaultLineHeight,
             codeBackgroundColor: codeBackgroundColor,
             latexMarkerFont: PlatformFont.md(named: fontName, size: hiddenMarkerSize),
-            configuration: configuration
+            configuration: configuration,
+            scopeBounds: scopeBounds(of: scopedRanges, documentLength: nsText.length)
         )
 
         var result: [StyledRange] = []
@@ -182,6 +195,20 @@ enum MarkdownStyler {
 // MARK: - Shared helpers used by multiple styling extensions
 
 extension MarkdownStyler {
+
+    /// Bounding range of the valid scoped ranges; nil (= no culling) when the
+    /// restyle is unscoped or no scope survives validation.
+    static func scopeBounds(of scopedRanges: [NSRange]?, documentLength: Int) -> NSRange? {
+        guard let scopedRanges else { return nil }
+        var lo = Int.max
+        var hi = Int.min
+        for range in scopedRanges where range.location != NSNotFound && range.location >= 0 && range.length > 0 {
+            lo = min(lo, range.location)
+            hi = max(hi, min(documentLength, range.location + range.length))
+        }
+        guard lo < hi else { return nil }
+        return NSRange(location: lo, length: hi - lo)
+    }
 
     static func appendSecondaryMarkers(
         for token: MarkdownToken,

@@ -26,7 +26,28 @@ extension MarkdownStyler {
         var attrs: [StyledRange] = []
         // Per-content occurrence counter so identical tables get distinct sourceIDs.
         var occurrenceByContentHash: [Int: Int] = [:]
-        for (idx, token) in ctx.tokens.enumerated() where token.kind == .table {
+        let tableTokens = ctx.tokens.enumerated().filter { $0.element.kind == .table }
+        // Out-of-scope tables emit nothing that survives the apply loop's clip, so
+        // rendering them (parse, layout, image) on every keystroke was pure waste.
+        // They still matter for one thing: a sourceID is the content hash plus the
+        // occurrence index among identical tables. Only tables that render this
+        // pass consume a sourceID, and identical content implies identical length,
+        // so only out-of-scope tables sharing a length with a rendering table need
+        // hashing to keep those indices stable. (Ported from swift-markdown-engine #96.)
+        let renderingLengths: Set<Int> = ctx.scopeBounds == nil ? [] : Set(
+            tableTokens
+                .filter { ctx.inScope($0.element.range) && !ctx.activeTokenIndices.contains($0.offset) }
+                .map { $0.element.range.length }
+        )
+        for (idx, token) in tableTokens {
+            guard ctx.inScope(token.range) else {
+                guard renderingLengths.contains(token.range.length) else { continue }
+                let source = ctx.nsText.substring(with: token.range)
+                guard MarkdownTable(source: source) != nil else { continue }
+                let contentHash = stableTableContentHash(for: source)
+                occurrenceByContentHash[contentHash, default: 0] += 1
+                continue
+            }
             // Tokenizer already drops tables overlapping fenced code, so no re-check here.
             attrs.append((token.range, [.spellingState: 0]))
 

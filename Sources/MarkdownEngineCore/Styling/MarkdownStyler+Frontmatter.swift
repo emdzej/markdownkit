@@ -113,7 +113,8 @@ struct FrontmatterProperties: Equatable {
 extension MarkdownStyler {
 
     static func styleFrontmatter(_ ctx: StylingContext) -> [StyledRange] {
-        guard let (idx, token) = ctx.tokens.enumerated().first(where: { $0.element.kind == .frontmatter }) else { return [] }
+        guard let (idx, token) = ctx.tokens.enumerated().first(where: { $0.element.kind == .frontmatter }),
+              ctx.inScope(token.range) else { return [] }
         var attrs: [StyledRange] = [(token.range, [.spellingState: 0])]
         if ctx.activeTokenIndices.contains(idx) {
             attrs += frontmatterSourceAttributes(token, ns: ctx.nsText, theme: ctx.configuration.theme, source: ctx.configuration.source)

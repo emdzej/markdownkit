@@ -15,8 +15,14 @@ import UIKit
 
 enum MarkdownInputHandler {
 
-    static func handleListInsertion(textView: PlatformTextView, affectedCharRange: NSRange, replacementString: String?) -> Bool {
-        return MarkdownLists.handleInsertion(textView: textView, affectedCharRange: affectedCharRange, replacementString: replacementString)
+    static func handleListInsertion(
+        textView: PlatformTextView,
+        affectedCharRange: NSRange,
+        replacementString: String?,
+        codeTokens: [MarkdownToken]? = nil
+    ) -> Bool {
+        return MarkdownLists.handleInsertion(textView: textView, affectedCharRange: affectedCharRange,
+                                             replacementString: replacementString, codeTokens: codeTokens)
     }
 
     // MARK: - Block LaTeX Auto-Wrap

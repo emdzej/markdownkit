@@ -118,6 +118,29 @@ enum MarkdownDetection {
         isInsideCodeBlock(range: NSRange(location: location, length: 0), codeTokens: codeTokens)
     }
 
+    /// Count of non-overlapping ``` occurrences in `range` (default: the whole
+    /// text), scanning left to right — exactly
+    /// `substring.components(separatedBy: "```").count - 1`, but as one UTF-16
+    /// pass with no substring-array allocation. (Ported from swift-markdown-engine #96.)
+    static func tripleBacktickCount(in text: NSString, range: NSRange? = nil) -> Int {
+        let scan = range ?? NSRange(location: 0, length: text.length)
+        let length = scan.length
+        guard length >= 3, scan.location >= 0, NSMaxRange(scan) <= text.length else { return 0 }
+        var buffer = [unichar](repeating: 0, count: length)
+        text.getCharacters(&buffer, range: scan)
+        var count = 0
+        var i = 0
+        while i + 2 < length {                           // i can reach length - 3
+            if buffer[i] == 0x60, buffer[i + 1] == 0x60, buffer[i + 2] == 0x60 {
+                count += 1
+                i += 3
+            } else {
+                i += 1
+            }
+        }
+        return count
+    }
+
     // MARK: - LaTeX Detection
 
     static func isInsideLatex(location: Int, in text: String) -> Bool {

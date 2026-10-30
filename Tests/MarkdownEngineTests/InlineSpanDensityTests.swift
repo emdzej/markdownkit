@@ -81,7 +81,9 @@ struct InlineSpanDensityTests {
     /// floor is the stable statistic. Means would make this a flake.
     private func msPerParse(_ text: String) -> Double {
         var best = Double.infinity
-        for _ in 0..<7 {
+        // More rounds than upstream: the suite runs alongside the rest of the
+        // (parallel) test run here, and a 0.1ms baseline is easily disturbed.
+        for _ in 0..<15 {
             let start = DispatchTime.now().uptimeNanoseconds
             for _ in 0..<20 { _ = DocumentAST.parse(text) }
             let ms = Double(DispatchTime.now().uptimeNanoseconds - start) / 20 / 1_000_000

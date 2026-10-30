@@ -21,7 +21,7 @@ extension MarkdownStyler {
     static func styleBlockLatex(_ ctx: StylingContext) -> [StyledRange] {
         var attrs: [StyledRange] = []
         let blockLatexTokens = ctx.tokens.enumerated().filter { $0.element.kind == .blockLatex }
-        for (idx, token) in blockLatexTokens {
+        for (idx, token) in blockLatexTokens where ctx.inScope(token.range) {
             if MarkdownDetection.isInsideCodeBlock(range: token.range, codeTokens: ctx.codeTokens) { continue }
             let isActive = ctx.activeTokenIndices.contains(idx)
             let rawLatexContent = ctx.nsText.substring(with: token.contentRange)
@@ -86,7 +86,7 @@ extension MarkdownStyler {
             markerFontWidthCache[s] = w
             return w
         }
-        for (idx, token) in ctx.tokens.enumerated() where token.kind == .inlineLatex {
+        for (idx, token) in ctx.tokens.enumerated() where token.kind == .inlineLatex && ctx.inScope(token.range) {
             if MarkdownDetection.isInsideCodeBlock(range: token.range, codeTokens: ctx.codeTokens) { continue }
             if tableRanges.contains(where: { tableRange in
                 token.range.location >= tableRange.location

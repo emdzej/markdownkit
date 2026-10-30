@@ -20,7 +20,8 @@ extension MarkdownStyler {
     static func styleLinkPreviews(_ ctx: StylingContext) -> [StyledRange] {
         var attrs: [StyledRange] = []
         let tableRanges = ctx.tokens.filter { $0.kind == .table }.map(\.range)
-        for (idx, token) in ctx.tokens.enumerated() where token.kind == .link && token.markerRanges.count > 4 {
+        for (idx, token) in ctx.tokens.enumerated()
+        where token.kind == .link && token.markerRanges.count > 4 && ctx.inScope(token.range) {
             if MarkdownDetection.isInsideCodeBlock(range: token.range, codeTokens: ctx.codeTokens) { continue }
             if tableRanges.contains(where: { NSLocationInRange(token.range.location, $0) }) { continue }
             guard let attributes = MarkdownAttributes(source: ctx.nsText.substring(with: token.markerRanges[4])),

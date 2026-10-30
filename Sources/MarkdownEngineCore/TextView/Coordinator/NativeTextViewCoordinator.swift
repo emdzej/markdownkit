@@ -89,6 +89,12 @@ public final class NativeTextViewCoordinator: NSObject, NSTextViewDelegate, Prog
     var cachedCodeBlockTokens: [(index: Int, token: MarkdownToken)] = []
     var cachedParsedText: String?
     var cachedParsedDocument: ParsedDocument?
+    /// Character-edit generation of the text view's storage; lets
+    /// `parsedDocument` return cache hits in O(1) instead of an O(doc) string
+    /// compare per call (several per keystroke). (Adapted from swift-markdown-engine #96.)
+    let storageEdits = TextStorageEditCounter()
+    var cachedParseGeneration: UInt64 = .max
+    var cachedParsedLength: Int = -1
     // Skip spellcheck property setters when the state wouldn't change.
     var cachedSpellingDisabled: Bool?
 

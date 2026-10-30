@@ -34,7 +34,11 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     private var pendingEditedRange: NSRange?
     private var pendingPreEditActiveTokenIndices: Set<Int>?
     private var previousBacktickCount = 0
-    private var cachedTokens: (text: String, tokens: [MarkdownToken])?
+    private var cachedTokens: (text: String, length: Int, generation: UInt64, tokens: [MarkdownToken])?
+    /// Character-edit generation of the text view's storage: token-cache hits
+    /// in O(1) instead of an O(doc) string compare per call (several per
+    /// keystroke). (Adapted from swift-markdown-engine #96.)
+    private let storageEdits = TextStorageEditCounter()
 
     init(text: Binding<String>, fontName: String, fontSize: CGFloat) {
         _text = text
@@ -45,10 +49,21 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
 
     // MARK: Tokens
 
-    private func tokens(for text: String) -> [MarkdownToken] {
-        if let cachedTokens, cachedTokens.text == text { return cachedTokens.tokens }
+    /// Tokens of `text`, which must be `tv`'s current text.
+    private func tokens(for text: String, in tv: MarkdownUITextView) -> [MarkdownToken] {
+        storageEdits.track(tv.textStorage)
+        let length = (text as NSString).length
+        if let cachedTokens, cachedTokens.length == length {
+            if cachedTokens.generation == storageEdits.generation { return cachedTokens.tokens }
+            // Edited but possibly identical text: a UTF-16 compare, not the
+            // Unicode-normalizing Swift `==`.
+            if (cachedTokens.text as NSString).isEqual(to: text) {
+                self.cachedTokens?.generation = storageEdits.generation
+                return cachedTokens.tokens
+            }
+        }
         let tokens = MarkdownTokenizer.parseTokensViaAST(in: text)
-        cachedTokens = (text, tokens)
+        cachedTokens = (text, length, storageEdits.generation, tokens)
         return tokens
     }
 
@@ -73,7 +88,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
             revealedTableLocation = nil
         }
         lastSyncedText = text
-        previousBacktickCount = text.components(separatedBy: "```").count - 1
+        previousBacktickCount = MarkdownDetection.tripleBacktickCount(in: text as NSString)
         rebuildAll(tv)
     }
 
@@ -84,7 +99,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         let string = tv.string
         let ns = string as NSString
         let full = NSRange(location: 0, length: ns.length)
-        let tokens = tokens(for: string)
+        let tokens = tokens(for: string, in: tv)
         activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(
             selectionRange: tv.selectedRange, tokens: tokens, in: ns, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
@@ -173,10 +188,22 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         return result
     }
 
-    /// Paragraphs that always need restyling because they render overlays.
-    private func overlayParagraphs(_ tokens: [MarkdownToken], in ns: NSString) -> [NSRange] {
-        tokens.filter { [.inlineLatex, .blockLatex, .imageLink, .table].contains($0.kind) }
-            .map { ns.paragraphRange(for: $0.range) }
+    /// Paragraphs of the overlay-rendering tokens (formulas, images, tables) the
+    /// edit touches — their rendering spans whole paragraphs the edited-paragraph
+    /// candidates may not cover. Restyling EVERY such paragraph on every
+    /// keystroke widened the restyle to the whole document in formula- or
+    /// table-rich notes. An edit in a table's source also refreshes the tables
+    /// whose formulas may read it. (Ported from swift-markdown-engine #96.)
+    private func overlayParagraphs(_ tokens: [MarkdownToken], touching edited: NSRange, in ns: NSString) -> [NSRange] {
+        var result: [NSRange] = []
+        for token in tokens where [.inlineLatex, .blockLatex, .imageLink, .table].contains(token.kind)
+            && (NSIntersectionRange(token.range, edited).length > 0 || NSLocationInRange(edited.location, token.range)) {
+            result.append(ns.paragraphRange(for: token.range))
+            if token.kind == .table {
+                result += MarkdownFormulas.dependentTableParagraphs(in: ns as String, excluding: token.range)
+            }
+        }
+        return result
     }
 
     // MARK: UITextViewDelegate
@@ -187,7 +214,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         if tv.undoManager?.isUndoing == true || tv.undoManager?.isRedoing == true { return true }
 
         let string = tv.string
-        let tokens = tokens(for: string)
+        let tokens = tokens(for: string, in: tv)
         pendingPreEditActiveTokenIndices = MarkdownDetection.computeActiveTokenIndices(
             selectionRange: tv.selectedRange, tokens: tokens, in: string as NSString, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
@@ -195,7 +222,10 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
             textView: tv, affectedCharRange: range, replacementString: replacementText,
             blockLatexTokens: tokens.filter { $0.kind == .blockLatex }
         ) { textChanged(tv); return false }
-        if !MarkdownInputHandler.handleListInsertion(textView: tv, affectedCharRange: range, replacementString: replacementText) {
+        if !MarkdownInputHandler.handleListInsertion(
+            textView: tv, affectedCharRange: range, replacementString: replacementText,
+            codeTokens: tokens.filter { $0.kind == .codeBlock || $0.kind == .inlineCode }
+        ) {
             textChanged(tv)
             return false
         }
@@ -212,21 +242,22 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     func textChanged(_ tv: MarkdownUITextView) {
         guard tv.markedTextRange == nil else { return }
         let string = tv.string
-        if string != lastSyncedText {
+        if !(string as NSString).isEqual(to: lastSyncedText) {
             lastSyncedText = string
             text = string
         }
 
         let ns = string as NSString
         let caret = NSRange(location: min(tv.selectedRange.location, ns.length), length: 0)
-        let tokens = tokens(for: string)
+        let tokens = tokens(for: string, in: tv)
         let preEdit = pendingPreEditActiveTokenIndices ?? activeTokenIndices
         pendingPreEditActiveTokenIndices = nil
         activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(
             selectionRange: caret, tokens: tokens, in: ns, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
         )
 
-        let backticks = string.components(separatedBy: "```").count - 1
+        // One allocation-free UTF-16 scan. (Ported from swift-markdown-engine #96.)
+        let backticks = MarkdownDetection.tripleBacktickCount(in: ns)
         defer { previousBacktickCount = backticks }
         if backticks != previousBacktickCount {
             // Fence opened/closed: everything after it may have changed meaning.
@@ -245,7 +276,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         if NSMaxRange(current) < ns.length {
             candidates.append(ns.paragraphRange(for: NSRange(location: NSMaxRange(current), length: 0)))
         }
-        candidates += overlayParagraphs(tokens, in: ns)
+        candidates += overlayParagraphs(tokens, touching: edited, in: ns)
         candidates += paragraphs(of: tokens, indices: activeTokenIndices.union(preEdit), in: ns)
         restyle(tv, paragraphs: candidates, tokens: tokens)
         previousCaretLocation = caret.location
@@ -262,7 +293,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         let string = tv.string
         let ns = string as NSString
         let sel = tv.selectedRange
-        let tokens = tokens(for: string)
+        let tokens = tokens(for: string, in: tv)
         let previous = activeTokenIndices
         activeTokenIndices = MarkdownDetection.computeActiveTokenIndices(
             selectionRange: sel, tokens: tokens, in: ns, suppressed: !tv.isEditable, tableReveal: tableRevealPolicy
@@ -292,8 +323,8 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
 
     // MARK: Tables
 
-    private func tableToken(containing location: Int, in text: String) -> MarkdownToken? {
-        tokens(for: text).first {
+    private func tableToken(containing location: Int, in text: String, of tv: MarkdownUITextView) -> MarkdownToken? {
+        tokens(for: text, in: tv).first {
             $0.kind == .table && location >= $0.range.location && location <= NSMaxRange($0.range)
         }
     }
@@ -306,7 +337,7 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         guard NSMaxRange(range) <= ns.length else { return }
         // Formulas in other tables may read the edited one.
         let dependents = MarkdownFormulas.dependentTableParagraphs(in: tv.string, excluding: range)
-        restyle(tv, paragraphs: [ns.paragraphRange(for: range)] + dependents, tokens: tokens(for: tv.string))
+        restyle(tv, paragraphs: [ns.paragraphRange(for: range)] + dependents, tokens: tokens(for: tv.string, in: tv))
     }
 
     /// Shows the table starting at `location` as raw markdown with the caret in it.
@@ -314,8 +345,8 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
         revealedTableLocation = location
         tv.becomeFirstResponder()
         tv.selectedRange = NSRange(location: location, length: 0)
-        if let token = tableToken(containing: location, in: tv.string) {
-            restyle(tv, paragraphs: [(tv.string as NSString).paragraphRange(for: token.range)], tokens: tokens(for: tv.string))
+        if let token = tableToken(containing: location, in: tv.string, of: tv) {
+            restyle(tv, paragraphs: [(tv.string as NSString).paragraphRange(for: token.range)], tokens: tokens(for: tv.string, in: tv))
         }
     }
 
@@ -325,12 +356,12 @@ public final class MarkdownUICoordinator: NSObject, UITextViewDelegate, Programm
     private func routeSelectionThroughTableGrid(_ tv: MarkdownUITextView) -> Bool {
         guard configuration.renderingMode == .formatted else { return false }
         let selection = tv.selectedRange
-        let table = tableToken(containing: selection.location, in: tv.string)
+        let table = tableToken(containing: selection.location, in: tv.string, of: tv)
         if let revealed = revealedTableLocation, table?.range.location != revealed {
             revealedTableLocation = nil
             let ns = tv.string as NSString
             if revealed < ns.length {
-                restyle(tv, paragraphs: [ns.paragraphRange(for: NSRange(location: revealed, length: 0))], tokens: tokens(for: tv.string))
+                restyle(tv, paragraphs: [ns.paragraphRange(for: NSRange(location: revealed, length: 0))], tokens: tokens(for: tv.string, in: tv))
             }
         }
         // Only a caret the user is moving in the text view enters a grid.

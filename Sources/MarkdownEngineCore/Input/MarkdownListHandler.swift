@@ -84,7 +84,15 @@ struct MarkdownLists {
 
     // MARK: - Input Handling
 
-    static func handleInsertion(textView: PlatformTextView, affectedCharRange: NSRange, replacementString: String?) -> Bool {
+    /// - Parameter codeTokens: the caller's pre-edit code tokens, when it has a
+    ///   parse; answers "is the caret in code?" without re-tokenizing the whole
+    ///   document on every space/Enter. `nil` derives them here.
+    static func handleInsertion(
+        textView: PlatformTextView,
+        affectedCharRange: NSRange,
+        replacementString: String?,
+        codeTokens: [MarkdownToken]? = nil
+    ) -> Bool {
         guard let replacementString = replacementString else { return true }
 
         // Fast path: skip the expensive isInsideCodeBlock scan for ordinary typing.
@@ -106,9 +114,17 @@ struct MarkdownLists {
             return false
         }
 
-        let isInCodeBlock = textView.string.contains("`")
-            ? MarkdownDetection.isInsideCodeBlock(location: affectedCharRange.location, in: textView.string)
-            : false
+        // From the caller's parse when there is one (O(#code tokens)); otherwise
+        // the old derivation, which bridges + scans + tokenizes the document.
+        // (Ported from swift-markdown-engine #96.)
+        let isInCodeBlock: Bool
+        if let codeTokens {
+            isInCodeBlock = MarkdownDetection.isInsideCodeBlock(location: affectedCharRange.location, codeTokens: codeTokens)
+        } else {
+            isInCodeBlock = textView.string.contains("`")
+                ? MarkdownDetection.isInsideCodeBlock(location: affectedCharRange.location, in: textView.string)
+                : false
+        }
 
         if replacementString == ">" && affectedCharRange.length == 0 && !isInCodeBlock {
             let insertionLocation = affectedCharRange.location
@@ -201,12 +217,15 @@ struct MarkdownLists {
             // Horizontal rules render via the styler; source stays literal `---` so files round-trip.
 
             if currentLine.range(of: "^```\\w*$", options: .regularExpression) != nil {
-                let textBeforeLine = nsText.substring(to: currentLineRange.location)
-                let openingCount = textBeforeLine.components(separatedBy: "```").count - 1
+                // Allocation-free scans (no substring arrays / copies).
+                let openingCount = MarkdownDetection.tripleBacktickCount(
+                    in: nsText, range: NSRange(location: 0, length: currentLineRange.location)
+                )
                 let afterLineStart = currentLineRange.location + currentLineRange.length
                 let hasClosingAfter: Bool = {
                     guard afterLineStart < nsText.length else { return false }
-                    return nsText.substring(from: afterLineStart).contains("```")
+                    let rest = NSRange(location: afterLineStart, length: nsText.length - afterLineStart)
+                    return nsText.range(of: "```", options: [], range: rest).location != NSNotFound
                 }()
                 let lineEnd = currentLineRange.location + max(0, currentLineRange.length - 1)
                 let cursorAtLineEnd = affectedCharRange.location >= lineEnd

@@ -64,7 +64,9 @@ extension NativeTextViewCoordinator {
         previousCaretLocation = safeSelRange.location
         if !wtActive {
             let current = tv.string
-            if current != self.lastSyncedText {
+            // UTF-16 compare, not the bridged Swift `==` (Unicode-normalizing,
+            // O(doc) with a large constant on every keystroke).
+            if !(current as NSString).isEqual(to: self.lastSyncedText) {
                 DispatchQueue.main.async {
                     self.lastSyncedText = current
                     self.text = current
@@ -102,7 +104,9 @@ extension NativeTextViewCoordinator {
             nextParagraph
         ] + editedParagraphs
 
-        let backtickCount = tv.string.components(separatedBy: "```").count - 1
+        // One allocation-free UTF-16 scan instead of a whole-document substring
+        // array per keystroke. (Ported from swift-markdown-engine #96.)
+        let backtickCount = MarkdownDetection.tripleBacktickCount(in: fullText)
         let codeBlockStructureChanged = backtickCount != previousBacktickCount
         previousBacktickCount = backtickCount
 
@@ -132,9 +136,16 @@ extension NativeTextViewCoordinator {
         if codeBlockStructureChanged {
             effectiveParagraphCandidates = [NSRange(location: 0, length: fullText.length)]
         }
-        // Always restyle paragraphs containing latex tokens to avoid stale raw text.
-        let latexParagraphs = (latexTokens + blockLatexTokens).map { fullText.paragraphRange(for: $0.range) }
-        effectiveParagraphCandidates.append(contentsOf: latexParagraphs)
+        // Restyle the latex paragraphs the EDIT touches; the caret entering or
+        // leaving a formula (rendered <-> raw) is covered by tokenRestyleParagraphs.
+        // Restyling every formula paragraph in the document on every keystroke
+        // widened the restyle to the whole document in formula-rich notes.
+        // (Ported from swift-markdown-engine #96.)
+        for token in latexTokens + blockLatexTokens
+        where NSIntersectionRange(token.range, safeEditedRange).length > 0
+            || NSLocationInRange(safeEditedRange.location, token.range) {
+            effectiveParagraphCandidates.append(fullText.paragraphRange(for: token.range))
+        }
         effectiveParagraphCandidates.append(contentsOf: tokenRestyleParagraphs(
             in: fullText,
             tokens: tokens,
@@ -197,25 +208,6 @@ extension NativeTextViewCoordinator {
         let caretLoc = selRange.location
         let paragraphRange = nsText.paragraphRange(for: NSRange(location: caretLoc, length: 0))
 
-        var paragraphCandidates: [NSRange] = [paragraphRange]
-        if paragraphRange.length == 0 && caretLoc > 0 {
-            paragraphCandidates.append(nsText.paragraphRange(for: NSRange(location: max(0, caretLoc - 1), length: 0)))
-        }
-        if let prevLoc = previousCaretLocation, prevLoc != caretLoc {
-            let safePrev = min(prevLoc, nsText.length)
-            let prevPara = nsText.paragraphRange(for: NSRange(location: safePrev, length: 0))
-            paragraphCandidates.append(prevPara)
-        }
-        // Also restyle paragraphs containing latex tokens to refresh rendering.
-        let latexParagraphs = (latexTokens + blockLatexTokens).map { nsText.paragraphRange(for: $0.range) }
-        paragraphCandidates.append(contentsOf: latexParagraphs)
-        paragraphCandidates.append(contentsOf: tokenRestyleParagraphs(
-            in: nsText,
-            tokens: tokens,
-            currentActiveTokenIndices: activeTokenIndices,
-            previousActiveTokenIndices: previousActiveTokenIndices
-        ))
-
         let shouldSkipSelectionRestyle = pendingEditedRange != nil
         let tokensChanged = activeTokenIndices != prevActive
         // Caret crossings in/out of `- [ ]` syntax need a restyle too: task
@@ -256,6 +248,34 @@ extension NativeTextViewCoordinator {
             needsRestyleAfterDrag = true
         } else if tokensChanged || taskSyntaxChanged || hrLineChanged || bulletSyntaxChanged || needsRestyleAfterDrag {
             needsRestyleAfterDrag = false
+            // Candidates are built ONLY when a restyle actually runs — this used to
+            // happen on every selection change, including the mid-keystroke one
+            // whose restyle is skipped. (Ported from swift-markdown-engine #96.)
+            var paragraphCandidates: [NSRange] = [paragraphRange]
+            if paragraphRange.length == 0 && caretLoc > 0 {
+                paragraphCandidates.append(nsText.paragraphRange(for: NSRange(location: max(0, caretLoc - 1), length: 0)))
+            }
+            if let prevLoc = previousCaretLocation, prevLoc != caretLoc {
+                let safePrev = min(prevLoc, nsText.length)
+                let prevPara = nsText.paragraphRange(for: NSRange(location: safePrev, length: 0))
+                paragraphCandidates.append(prevPara)
+            }
+            // Latex paragraphs only between the caret and previous-caret paragraphs;
+            // a formula the caret entered or left is covered by tokenRestyleParagraphs.
+            // Mapping EVERY formula in the document widened each caret-move restyle
+            // to the whole document.
+            let scopeLo = paragraphCandidates.map(\.location).min() ?? 0
+            let scopeHi = paragraphCandidates.map { NSMaxRange($0) }.max() ?? 0
+            for token in latexTokens + blockLatexTokens
+            where token.range.location < scopeHi && NSMaxRange(token.range) > scopeLo {
+                paragraphCandidates.append(nsText.paragraphRange(for: token.range))
+            }
+            paragraphCandidates.append(contentsOf: tokenRestyleParagraphs(
+                in: nsText,
+                tokens: tokens,
+                currentActiveTokenIndices: activeTokenIndices,
+                previousActiveTokenIndices: previousActiveTokenIndices
+            ))
             restyleTextView(tv, paragraphCandidates: paragraphCandidates, tokens: tokens)
         }
 
@@ -320,7 +340,8 @@ extension NativeTextViewCoordinator {
             return false
         }
 
-        return MarkdownInputHandler.handleListInsertion(textView: textView, affectedCharRange: affectedCharRange, replacementString: replacementString)
+        return MarkdownInputHandler.handleListInsertion(textView: textView, affectedCharRange: affectedCharRange,
+                                                        replacementString: replacementString, codeTokens: parsed.codeTokens)
     }
 
     public func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {

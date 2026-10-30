@@ -25,7 +25,7 @@ extension MarkdownStyler {
     /// at line height, anywhere in a paragraph.
     static func styleImageLinks(_ ctx: StylingContext) -> [StyledRange] {
         var attrs: [StyledRange] = []
-        for (idx, token) in ctx.tokens.enumerated() where token.kind == .imageLink {
+        for (idx, token) in ctx.tokens.enumerated() where token.kind == .imageLink && ctx.inScope(token.range) {
             if MarkdownDetection.isInsideCodeBlock(range: token.range, codeTokens: ctx.codeTokens) { continue }
 
             // The URL lives between markerRanges[2] ('(') and markerRanges[3] (')');
