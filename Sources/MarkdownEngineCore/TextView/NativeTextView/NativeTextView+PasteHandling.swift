@@ -68,19 +68,12 @@ extension NativeTextView {
         insertText(prepared, replacementRange: sel)
     }
 
+    /// One undoable edit that bypasses the list / pair input handlers, which
+    /// `insertText` would run on the leading line break.
     private func insertBlockImage(_ markdown: String) {
         let sel = selectedRange()
-        let nsText = string as NSString
-        var prefix = ""
-        var suffix = ""
-        if sel.location > 0, nsText.character(at: sel.location - 1) != 0x0A {
-            prefix = "\n"
-        }
-        let afterLocation = sel.location + sel.length
-        if afterLocation < nsText.length, nsText.character(at: afterLocation) != 0x0A {
-            suffix = "\n"
-        }
-        insertText(prefix + markdown + suffix, replacementRange: sel)
+        insertMarkdown(BlockInsertion.padded(markdown, replacing: sel, in: string as NSString),
+                       replacing: sel, actionName: "Paste Image")
     }
 
     /// Reads the textual content of a pasted markdown/text file URL — the

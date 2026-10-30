@@ -27,6 +27,11 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     /// drop point — `DroppedFile.markdownLink(to:)` builds a link — or nil to
     /// ignore the drop. The `DroppedFile` URLs are temporary copies.
     public var onDropFiles: FileDropHandler?
+    /// Optional paste hook, called first when the pasteboard holds images.
+    /// Store them and return the markdown to insert (e.g.
+    /// `"![](attachments/photo.png)"`, put on its own line), or nil to fall
+    /// through to the normal paste.
+    public var onPasteImage: ((UIPasteboard) -> String?)?
     /// Addresses this editor from outside (insert text, focus).
     public var controller: MarkdownEditorController?
 
@@ -38,6 +43,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         documentId: String = "default",
         isEditable: Bool = true,
         controller: MarkdownEditorController? = nil,
+        onPasteImage: ((UIPasteboard) -> String?)? = nil,
         onDropFiles: FileDropHandler? = nil,
         onLinkClick: ((String) -> Void)? = nil
     ) {
@@ -49,6 +55,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.isEditable = isEditable
         self.onLinkClick = onLinkClick
         self.onDropFiles = onDropFiles
+        self.onPasteImage = onPasteImage
         self.controller = controller
     }
 
@@ -66,6 +73,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.documentId = documentId
         tv.delegate = coordinator
         tv.onDropFiles = onDropFiles
+        tv.onPasteImage = onPasteImage
         tv.isEditable = isEditable
         controller?.textView = tv
         apply(configuration, to: tv)
@@ -79,6 +87,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         controller?.textView = tv
         coordinator.onLinkClick = onLinkClick
         tv.onDropFiles = onDropFiles
+        tv.onPasteImage = onPasteImage
 
         let documentChanged = coordinator.documentId != documentId
         let fontChanged = coordinator.fontName != fontName || coordinator.fontSize != fontSize

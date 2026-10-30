@@ -39,6 +39,9 @@ public final class MarkdownEditorController {
     public var isEditingAnything: Bool { isEditing || tableCell != nil }
     /// The block style of the caret's line, refreshed as the selection moves.
     public private(set) var currentBlockStyle: MarkdownFormatting.BlockStyle = .body
+    /// The selection (UTF-16 range in the markdown source), refreshed as it
+    /// moves; observable, unlike `selectedRange` (e.g. a selection word count).
+    public private(set) var selection = NSRange(location: 0, length: 0)
 
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
 
@@ -141,10 +144,12 @@ public final class MarkdownEditorController {
         }
     }
 
-    /// Re-reads the caret's block style (iOS posts no selection notification;
-    /// the coordinator calls this when the selection changes).
+    /// Re-reads the caret's block style and the selection (iOS posts no
+    /// selection notification; the coordinator calls this when the selection
+    /// changes).
     func refreshBlockStyle() {
         guard let textView, let range = selectedRange else { return }
+        if range != selection { selection = range }
         let style = MarkdownFormatting.blockStyle(at: range.location, in: textView.string)
         if style != currentBlockStyle { currentBlockStyle = style }
     }
@@ -250,6 +255,32 @@ public final class MarkdownEditorController {
         let selection = textView.selectedRange
         #endif
         textView.insertMarkdown(text, replacing: selection, actionName: actionName)
+    }
+
+    /// Replaces `range` (UTF-16, clamped) with `text` (raw markdown) as one
+    /// undoable edit and puts the caret after it, e.g. to turn typed
+    /// `[[query` into a link.
+    public func replace(_ range: NSRange, with text: String, actionName: String = "Insert") {
+        textView?.insertMarkdown(text, replacing: range, actionName: actionName)
+    }
+
+    /// The caret's rectangle in the editor view's coordinates (origin at its
+    /// top left, as SwiftUI lays it out), e.g. to anchor a popover there.
+    public var caretRect: CGRect? {
+        guard let textView, let range = selectedRange else { return nil }
+        #if os(macOS)
+        // The character before the caret: an empty range has no segment to
+        // measure. (Layout, not `firstRect`, which wakes the input method.)
+        let probe = range.location > 0 ? NSRange(location: range.location - 1, length: 1) : NSRange(location: 0, length: 0)
+        guard let rect = textView.viewRect(forCharacterRange: probe, using: textView.layoutBridge), rect != .zero else { return nil }
+        return CGRect(x: probe.length > 0 ? rect.maxX : rect.minX, y: rect.minY, width: 1, height: rect.height)
+        #else
+        guard let position = textView.position(from: textView.beginningOfDocument, offset: range.location) else { return nil }
+        let rect = textView.caretRect(for: position)
+        guard !rect.isNull, !rect.isInfinite else { return nil }
+        // A UITextView scrolls by moving its bounds; the frame is what's on screen.
+        return rect.offsetBy(dx: -textView.bounds.minX, dy: -textView.bounds.minY)
+        #endif
     }
 
     /// Selects `range` (UTF-16, clamped) and scrolls it into view, e.g. to

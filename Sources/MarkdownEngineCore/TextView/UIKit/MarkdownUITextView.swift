@@ -17,6 +17,8 @@ final class MarkdownUITextView: UITextView {
     var layoutBridge: LayoutBridge?
     /// Embedder hook for files dropped onto the editor; see `+FileDrop.swift`.
     var onDropFiles: FileDropHandler?
+    /// Embedder hook for pasted images; see `+Paste.swift`.
+    var onPasteImage: ((UIPasteboard) -> String?)?
     /// Told when the selection moves (formatting bar state).
     weak var editorController: MarkdownEditorController?
 

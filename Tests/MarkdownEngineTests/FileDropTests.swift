@@ -3,7 +3,8 @@
 //  MarkdownEngineTests
 //
 //  Dropped-file links, and (macOS) the drop hook inserting the embedder's
-//  markdown at the drop point as one undoable edit.
+//  markdown at the drop point as one undoable edit; the controller's edits;
+//  pasted images on their own line.
 //
 
 import Foundation
@@ -121,6 +122,51 @@ struct EditorControllerAppKitTests {
 
         controller.reveal(NSRange(location: 6, length: 99))
         #expect(controller.selectedRange == NSRange(location: 6, length: 5))
+        try? await Task.sleep(for: .seconds(0.1))
+        #expect(controller.selection == NSRange(location: 6, length: 5))
+    }
+
+    @Test func replaceSwapsARangeAsOneUndoStepAndReportsTheCaret() async throws {
+        _ = NSApplication.shared
+        let box = Box("See [[]] later")
+        let controller = MarkdownEditorController()
+        let root = NativeTextViewWrapper(text: Binding(get: { box.text }, set: { box.text = $0 }),
+                                         fontName: "Helvetica", fontSize: 14, controller: controller)
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 500, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: root)
+        window.orderFrontRegardless()
+        defer { window.close() }
+        try? await Task.sleep(for: .seconds(0.5))
+
+        controller.textView?.setSelectedRange(NSRange(location: 6, length: 0))
+        let caret = try #require(controller.caretRect)
+        // In the editor's own top-left coordinates, on its first line.
+        #expect(caret.minX > 0 && caret.minX < 500 && caret.minY >= 0 && caret.maxY < 150)
+
+        controller.replace(NSRange(location: 4, length: 4), with: "[Plan](Plan.md)", actionName: "Link to Note")
+        try? await Task.sleep(for: .seconds(0.2))
+        #expect(box.text == "See [Plan](Plan.md) later")
+        #expect(controller.selectedRange == NSRange(location: 19, length: 0))
+        #expect(controller.textView?.undoManager?.undoActionName == "Link to Note")
+        controller.textView?.undoManager?.undo()
+        try? await Task.sleep(for: .seconds(0.2))
+        #expect(box.text == "See [[]] later")
     }
 }
 #endif
+
+@Suite("Block insertion")
+struct BlockInsertionTests {
+
+    @Test func pastedImagesGetTheirOwnLine() {
+        let image = "![](a.png)"
+        #expect(BlockInsertion.padded(image, replacing: NSRange(location: 0, length: 0), in: "") == image)
+        #expect(BlockInsertion.padded(image, replacing: NSRange(location: 3, length: 0), in: "abcdef") == "\n\(image)\n")
+        #expect(BlockInsertion.padded(image, replacing: NSRange(location: 4, length: 0), in: "abc\ndef") == "\(image)\n")
+        #expect(BlockInsertion.padded(image, replacing: NSRange(location: 3, length: 0), in: "abc\ndef") == "\n\(image)")
+        // A selection is replaced: what's around it decides.
+        #expect(BlockInsertion.padded(image, replacing: NSRange(location: 1, length: 2), in: "abc") == "\n\(image)")
+        #expect(BlockInsertion.padded(image, replacing: NSRange(location: 0, length: 99), in: "abc") == image)
+    }
+}
