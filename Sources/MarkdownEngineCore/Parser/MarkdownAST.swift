@@ -57,9 +57,57 @@ enum DocumentAST {
     static func parse(_ text: String, scopedRanges: [NSRange]? = nil) -> [BlockNode] {
         let ns = text as NSString
         let blocks = BlockParser.parse(text)
-        // Scoped mode: skip building BlockNodes for blocks outside the edit.
-        let relevant = scopedRanges == nil ? blocks : blocks.filter { inScope($0.range, scopedRanges) }
-        return relevant.map { node(for: $0, ns: ns, scopedRanges: scopedRanges) }
+        guard let scopedRanges else {
+            return blocks.map { node(for: $0, ns: ns, scopedRanges: nil) }
+        }
+        // Scoped mode: skip building BlockNodes for blocks outside the edit, and
+        // hand each block only the scopes that reach it (a list then builds only
+        // the items those scopes touch). Blocks tile the document in order, so
+        // one sweep over the normalized (sorted, merged) scopes replaces testing
+        // every scope against every block. (Ported from swift-markdown-engine #149.)
+        let scopes = normalizeScopes(scopedRanges, documentLength: ns.length)
+        var out: [BlockNode] = []
+        var ci = 0
+        for block in blocks {
+            while ci < scopes.count, NSMaxRange(scopes[ci]) <= block.range.location { ci += 1 }
+            guard ci < scopes.count else { break }
+            var intersections: [NSRange] = []
+            var si = ci
+            while si < scopes.count, scopes[si].location < NSMaxRange(block.range) {
+                intersections.append(scopes[si])
+                si += 1
+            }
+            if !intersections.isEmpty {
+                out.append(node(for: block, ns: ns, scopedRanges: intersections))
+            }
+        }
+        return out
+    }
+
+    /// Clamp scopes to the document, drop empty/invalid ones, then sort and
+    /// merge them once so every scoped consumer sees one monotonic view of the
+    /// edit region.
+    private static func normalizeScopes(_ ranges: [NSRange], documentLength: Int) -> [NSRange] {
+        let sorted = ranges.compactMap { range -> NSRange? in
+            guard range.location != NSNotFound else { return nil }
+            let (rawEnd, overflowed) = range.location.addingReportingOverflow(range.length)
+            let start = max(0, range.location)
+            let end = min(documentLength, overflowed ? Int.max : rawEnd)
+            return end > start ? NSRange(location: start, length: end - start) : nil
+        }
+        .sorted { $0.location == $1.location ? $0.length < $1.length : $0.location < $1.location }
+
+        var result: [NSRange] = []
+        result.reserveCapacity(sorted.count)
+        for range in sorted {
+            if let previous = result.last, range.location <= NSMaxRange(previous) {
+                let end = max(NSMaxRange(previous), NSMaxRange(range))
+                result[result.count - 1].length = end - previous.location
+            } else {
+                result.append(range)
+            }
+        }
+        return result
     }
 
     private static func inScope(_ range: NSRange, _ scopedRanges: [NSRange]?) -> Bool {
@@ -77,7 +125,7 @@ enum DocumentAST {
         case .blockquote:
             return .blockquote(range: block.range, inlines: scoped ? InlineParser.parse(ns, range: block.range) : [])
         case .list:
-            return list(block.range, ns, scoped: scoped)
+            return list(block.range, ns, scopedRanges: scopedRanges)
         case .fencedCode:
             return .codeBlock(range: block.range)
         case .blockLatex:
@@ -114,17 +162,38 @@ enum DocumentAST {
                         inlines: scoped ? InlineParser.parse(ns, range: contentRange) : [])
     }
 
-    /// Split a list block into one `ListItem` per physical line.
-    private static func list(_ range: NSRange, _ ns: NSString, scoped: Bool = true) -> BlockNode {
-        var items: [ListItem] = []
-        var cursor = range.location
-        let end = NSMaxRange(range)
-        while cursor < end {
-            let line = ns.lineRange(for: NSRange(location: cursor, length: 0))
-            items.append(listItem(line, ns, scoped: scoped))
-            cursor = NSMaxRange(line)
+    /// Split a list block into one `ListItem` per physical line. A scoped pass
+    /// builds only the lines its scopes touch, so a keystroke in a long list
+    /// no longer re-parses every item's inlines. The styler and the restyle's
+    /// apply loop are clipped to the same scopes, so the skipped items are never
+    /// painted anyway. (Ported from swift-markdown-engine #149.)
+    private static func list(_ range: NSRange, _ ns: NSString, scopedRanges: [NSRange]? = nil) -> BlockNode {
+        var lineRanges: [NSRange] = []
+        if let scopedRanges {
+            for scope in scopedRanges {
+                let intersection = NSIntersectionRange(scope, range)
+                guard intersection.length > 0 else { continue }
+                let expanded = NSIntersectionRange(ns.lineRange(for: intersection), range)
+                var cursor = expanded.location
+                let end = NSMaxRange(expanded)
+                while cursor < end {
+                    let line = NSIntersectionRange(ns.lineRange(for: NSRange(location: cursor, length: 0)), range)
+                    if line.length > 0, lineRanges.last != line { lineRanges.append(line) }
+                    let next = NSMaxRange(line)
+                    guard next > cursor else { break }
+                    cursor = next
+                }
+            }
+        } else {
+            var cursor = range.location
+            let end = NSMaxRange(range)
+            while cursor < end {
+                let line = ns.lineRange(for: NSRange(location: cursor, length: 0))
+                lineRanges.append(line)
+                cursor = NSMaxRange(line)
+            }
         }
-        return .list(range: range, items: items)
+        return .list(range: range, items: lineRanges.map { listItem($0, ns) })
     }
 
     /// Parse one list-item line: indent, marker, optional task checkbox, inline content.
