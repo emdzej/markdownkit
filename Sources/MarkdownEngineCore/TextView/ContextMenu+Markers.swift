@@ -31,7 +31,7 @@ extension NativeTextViewWrapper.Coordinator {
               let target = MarkdownAttributeEditing.target(at: charIndex, in: textView.string) else { return [] }
         let location = target.range.location
         func item(_ title: String, _ action: MarkerAction, on: Bool = false) -> NSMenuItem {
-            let item = NSMenuItem(title: title, action: #selector(didChooseMarkerItem(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: EngineStrings.localized(title), action: #selector(didChooseMarkerItem(_:)), keyEquivalent: "")
             item.target = self
             item.image = MenuIcons.image(for: title)
             item.state = on ? .on : .off
@@ -39,9 +39,9 @@ extension NativeTextViewWrapper.Coordinator {
             return item
         }
         func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
-            let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let parent = NSMenuItem(title: EngineStrings.localized(title), action: nil, keyEquivalent: "")
             parent.image = MenuIcons.image(for: title)
-            let menu = NSMenu(title: title)
+            let menu = NSMenu(title: EngineStrings.localized(title))
             items.forEach(menu.addItem)
             parent.submenu = menu
             return parent

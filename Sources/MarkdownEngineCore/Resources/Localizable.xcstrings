@@ -1,0 +1,596 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Add Column": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodanie kolumny"
+          }
+        }
+      }
+    },
+    "Add Row": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodanie wiersza"
+          }
+        }
+      }
+    },
+    "Align": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyrównanie"
+          }
+        }
+      }
+    },
+    "Align Center": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyśrodkuj"
+          }
+        }
+      }
+    },
+    "Align Left": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyrównaj do lewej"
+          }
+        }
+      }
+    },
+    "Align Right": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyrównaj do prawej"
+          }
+        }
+      }
+    },
+    "Bold": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pogrubienie"
+          }
+        }
+      }
+    },
+    "Bullet": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Punktowana"
+          }
+        }
+      }
+    },
+    "Card Size": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmiar karty"
+          }
+        }
+      }
+    },
+    "Center": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do środka"
+          }
+        }
+      }
+    },
+    "Change Alignment": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmiana wyrównania"
+          }
+        }
+      }
+    },
+    "Change Size": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmiana rozmiaru"
+          }
+        }
+      }
+    },
+    "Check": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaznaczenie"
+          }
+        }
+      }
+    },
+    "Checklist": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lista kontrolna"
+          }
+        }
+      }
+    },
+    "Column Options": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcje kolumny"
+          }
+        }
+      }
+    },
+    "Delete Column": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń kolumnę"
+          }
+        }
+      }
+    },
+    "Delete Row": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń wiersz"
+          }
+        }
+      }
+    },
+    "Edit as Markdown": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj jako Markdown"
+          }
+        }
+      }
+    },
+    "Edit Table": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edycja tabeli"
+          }
+        }
+      }
+    },
+    "Fit All Columns to Content": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dopasuj wszystkie kolumny do zawartości"
+          }
+        }
+      }
+    },
+    "Fit Column Width": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dopasowanie szerokości kolumny"
+          }
+        }
+      }
+    },
+    "Fit Width to Content": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dopasuj szerokość do zawartości"
+          }
+        }
+      }
+    },
+    "Format": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format"
+          }
+        }
+      }
+    },
+    "Full Width": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pełna szerokość"
+          }
+        }
+      }
+    },
+    "Heading": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nagłówek"
+          }
+        }
+      }
+    },
+    "Icon": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ikona"
+          }
+        }
+      }
+    },
+    "Icon Only": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tylko ikona"
+          }
+        }
+      }
+    },
+    "Image Size": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmiar obrazka"
+          }
+        }
+      }
+    },
+    "Indent": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwiększenie wcięcia"
+          }
+        }
+      }
+    },
+    "Insert": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstawienie"
+          }
+        }
+      }
+    },
+    "Insert Column": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstawienie kolumny"
+          }
+        }
+      }
+    },
+    "Insert Column Left": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstaw kolumnę z lewej"
+          }
+        }
+      }
+    },
+    "Insert Column Right": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstaw kolumnę z prawej"
+          }
+        }
+      }
+    },
+    "Insert File": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstawienie pliku"
+          }
+        }
+      }
+    },
+    "Insert Files": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstawienie plików"
+          }
+        }
+      }
+    },
+    "Insert Row": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstawienie wiersza"
+          }
+        }
+      }
+    },
+    "Insert Row Above": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstaw wiersz powyżej"
+          }
+        }
+      }
+    },
+    "Insert Row Below": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstaw wiersz poniżej"
+          }
+        }
+      }
+    },
+    "Insert Table": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstawienie tabeli"
+          }
+        }
+      }
+    },
+    "Italic": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kursywa"
+          }
+        }
+      }
+    },
+    "Large": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duży"
+          }
+        }
+      }
+    },
+    "Left": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do lewej"
+          }
+        }
+      }
+    },
+    "Lists": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listy"
+          }
+        }
+      }
+    },
+    "Medium": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Średni"
+          }
+        }
+      }
+    },
+    "Move Column Left": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przesuń kolumnę w lewo"
+          }
+        }
+      }
+    },
+    "Move Column Right": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przesuń kolumnę w prawo"
+          }
+        }
+      }
+    },
+    "Move Row Down": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przesuń wiersz w dół"
+          }
+        }
+      }
+    },
+    "Move Row Up": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przesuń wiersz w górę"
+          }
+        }
+      }
+    },
+    "Numbered": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numerowana"
+          }
+        }
+      }
+    },
+    "Original": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oryginalny"
+          }
+        }
+      }
+    },
+    "Outdent": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmniejszenie wcięcia"
+          }
+        }
+      }
+    },
+    "Paste Image": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wklejenie obrazka"
+          }
+        }
+      }
+    },
+    "Preview Card": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karta podglądu"
+          }
+        }
+      }
+    },
+    "Resize Column": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmiana szerokości kolumny"
+          }
+        }
+      }
+    },
+    "Right": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do prawej"
+          }
+        }
+      }
+    },
+    "Row Options": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcje wiersza"
+          }
+        }
+      }
+    },
+    "Show as Link": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż jako łącze"
+          }
+        }
+      }
+    },
+    "Show as Preview Card": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż jako kartę podglądu"
+          }
+        }
+      }
+    },
+    "Small": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mały"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

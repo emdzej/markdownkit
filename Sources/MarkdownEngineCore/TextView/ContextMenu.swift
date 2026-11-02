@@ -21,25 +21,28 @@ extension NativeTextViewWrapper.Coordinator {
             customMenu.insertItem(item, at: offset)
         }
 
-        if let fontIndex = customMenu.items.firstIndex(where: { $0.title == "Font" }) {
+        // The system's Font submenu, found by its Show Fonts item since its title is translated.
+        if let fontIndex = customMenu.items.firstIndex(where: { item in
+            item.submenu?.items.contains { $0.action == #selector(NSFontManager.orderFrontFontPanel(_:)) } == true || item.title == "Font"
+        }) {
             customMenu.removeItem(at: fontIndex)
-            let formatItem = NSMenuItem(title: "Format", action: nil, keyEquivalent: "")
+            let formatItem = NSMenuItem(title: EngineStrings.localized("Format"), action: nil, keyEquivalent: "")
             formatItem.image = MenuIcons.image(for: "Format")
-            let formatSubmenu = NSMenu(title: "Format")
-            let boldItem = NSMenuItem(title: "Bold", action: #selector(didMarkdownBold(_:)), keyEquivalent: "")
+            let formatSubmenu = NSMenu(title: EngineStrings.localized("Format"))
+            let boldItem = NSMenuItem(title: EngineStrings.localized("Bold"), action: #selector(didMarkdownBold(_:)), keyEquivalent: "")
             boldItem.image = MenuIcons.image(for: "Bold")
             boldItem.target = self
             formatSubmenu.addItem(boldItem)
-            let italicItem = NSMenuItem(title: "Italic", action: #selector(didMarkdownItalic(_:)), keyEquivalent: "")
+            let italicItem = NSMenuItem(title: EngineStrings.localized("Italic"), action: #selector(didMarkdownItalic(_:)), keyEquivalent: "")
             italicItem.image = MenuIcons.image(for: "Italic")
             italicItem.target = self
             formatSubmenu.addItem(italicItem)
             formatItem.submenu = formatSubmenu
             customMenu.insertItem(formatItem, at: fontIndex)
 
-            let headingItem = NSMenuItem(title: "Heading", action: nil, keyEquivalent: "")
+            let headingItem = NSMenuItem(title: EngineStrings.localized("Heading"), action: nil, keyEquivalent: "")
             headingItem.image = MenuIcons.image(for: "Heading")
-            let headingSubmenu = NSMenu(title: "Heading")
+            let headingSubmenu = NSMenu(title: EngineStrings.localized("Heading"))
             for level in 1...3 {
                 let item = NSMenuItem(title: "H\(level)", action: #selector(didMarkdownHeading(_:)), keyEquivalent: "")
                 item.image = MenuIcons.image(for: "H\(level)")
@@ -50,14 +53,14 @@ extension NativeTextViewWrapper.Coordinator {
             headingItem.submenu = headingSubmenu
             customMenu.insertItem(headingItem, at: fontIndex + 1)
 
-            let listItem = NSMenuItem(title: "Lists", action: nil, keyEquivalent: "")
+            let listItem = NSMenuItem(title: EngineStrings.localized("Lists"), action: nil, keyEquivalent: "")
             listItem.image = MenuIcons.image(for: "Lists")
-            let listSubmenu = NSMenu(title: "Lists")
-            let unorderedItem = NSMenuItem(title: "Bullet", action: #selector(didMarkdownUnorderedList(_:)), keyEquivalent: "")
+            let listSubmenu = NSMenu(title: EngineStrings.localized("Lists"))
+            let unorderedItem = NSMenuItem(title: EngineStrings.localized("Bullet"), action: #selector(didMarkdownUnorderedList(_:)), keyEquivalent: "")
             unorderedItem.image = MenuIcons.image(for: "Bullet")
             unorderedItem.target = self
             listSubmenu.addItem(unorderedItem)
-            let orderedItem = NSMenuItem(title: "Numbered", action: #selector(didMarkdownOrderedList(_:)), keyEquivalent: "")
+            let orderedItem = NSMenuItem(title: EngineStrings.localized("Numbered"), action: #selector(didMarkdownOrderedList(_:)), keyEquivalent: "")
             orderedItem.image = MenuIcons.image(for: "Numbered")
             orderedItem.target = self
             listSubmenu.addItem(orderedItem)

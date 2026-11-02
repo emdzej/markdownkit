@@ -337,14 +337,14 @@ struct MarkerBarView: View {
                 button("Show as Link", symbol: "link", selected: false) { apply(.preview(false)) }
             case .link:
                 Button { apply(.preview(true)) } label: {
-                    Label("Preview Card", systemImage: "text.below.photo")
+                    Label(EngineStrings.localized("Preview Card"), systemImage: "text.below.photo")
                         .font(Self.control > 30 ? .subheadline.weight(.medium) : .caption.weight(.medium))
                         .padding(.horizontal, 8)
                         .frame(height: Self.control)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Show as Preview Card")
+                .help(EngineStrings.localized("Show as Preview Card"))
             }
         }
         .padding(Self.padding)
@@ -370,7 +370,7 @@ struct MarkerBarView: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help(Self.title(size))
+                .help(EngineStrings.localized(Self.title(size)))
             }
         }
     }
@@ -398,8 +398,8 @@ struct MarkerBarView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .help(title)
-        .accessibilityLabel(title)
+        .help(EngineStrings.localized(title))
+        .accessibilityLabel(EngineStrings.localized(title))
     }
 
     static func letter(_ size: MarkdownAttributes.Size) -> String {

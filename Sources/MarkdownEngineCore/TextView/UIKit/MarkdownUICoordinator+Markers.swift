@@ -25,7 +25,7 @@ extension MarkdownUICoordinator {
         let start = target.range.location
         let kind = target.kind
         func action(_ title: String, _ marker: MarkerAction, on: Bool = false, image: String? = nil) -> UIAction {
-            UIAction(title: title, image: image.flatMap { UIImage(systemName: $0) }, state: on ? .on : .off) { [weak tv] _ in
+            UIAction(title: EngineStrings.localized(title), image: image.flatMap { UIImage(systemName: $0) }, state: on ? .on : .off) { [weak tv] _ in
                 tv?.applyMarkerAction(marker, at: start, kinds: [kind])
             }
         }

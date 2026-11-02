@@ -122,7 +122,7 @@ extension MarkdownUITextView {
         }
         let markdown = table.markdown()
         mdReplace(range, with: markdown)
-        undoManager?.setActionName(actionName)
+        undoManager?.setActionName(EngineStrings.localized(actionName))
         markdownCoordinator?.programmaticEditDidChange(in: self, range: NSRange(location: range.location, length: (markdown as NSString).length))
     }
 

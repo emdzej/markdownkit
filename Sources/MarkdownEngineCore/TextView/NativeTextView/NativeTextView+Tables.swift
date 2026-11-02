@@ -25,7 +25,7 @@ extension NativeTextView {
         let markdown = table.markdown()
         breakUndoCoalescing()
         mdReplace(range, with: markdown)
-        undoManager?.setActionName(actionName)
+        undoManager?.setActionName(EngineStrings.localized(actionName))
         breakUndoCoalescing()
         restyleTable(at: NSRange(location: range.location, length: (markdown as NSString).length))
     }

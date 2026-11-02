@@ -65,7 +65,7 @@ extension NativeTextView {
         let inserted = NSRange(location: start, length: (markdown as NSString).length)
         breakUndoCoalescing()
         mdReplace(target, with: markdown)
-        undoManager?.setActionName(actionName)
+        undoManager?.setActionName(EngineStrings.localized(actionName))
         breakUndoCoalescing()
         setSelectedRange(NSRange(location: NSMaxRange(inserted), length: 0))
         // A programmatic insert leaves textDidChange no edited range to scope to.

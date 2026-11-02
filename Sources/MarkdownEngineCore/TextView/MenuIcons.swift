@@ -29,6 +29,9 @@ enum MenuIcons {
     }
     #endif
 
+    /// Titles with an icon (all the menu titles the engine shows).
+    static var titles: some Collection<String> { table.keys }
+
     private static let table: [String: String] = [
         // Text formatting
         "Format": "textformat", "Bold": "bold", "Italic": "italic", "Heading": "textformat.size",

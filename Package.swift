@@ -14,6 +14,7 @@ import PackageDescription
 // Embedders continue to `import MarkdownEngine` exactly as before.
 let package = Package(
     name: "MarkdownKit",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(name: "MarkdownEngine", type: .dynamic, targets: ["MarkdownEngine"]),
@@ -25,7 +26,7 @@ let package = Package(
         .package(url: "https://github.com/mgriebling/SwiftMath", from: "1.7.0"),
     ],
     targets: [
-        .target(name: "MarkdownEngineCore"),
+        .target(name: "MarkdownEngineCore", resources: [.process("Resources")]),
         .target(
             name: "MarkdownEngine",
             dependencies: ["MarkdownEngineCore"]

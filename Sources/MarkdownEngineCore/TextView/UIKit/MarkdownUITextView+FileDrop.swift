@@ -57,7 +57,7 @@ extension MarkdownUITextView: UITextDropDelegate {
         let target = NSRange(location: start, length: min(range.length, length - start))
         let inserted = NSRange(location: start, length: (markdown as NSString).length)
         mdReplace(target, with: markdown)
-        undoManager?.setActionName(actionName)
+        undoManager?.setActionName(EngineStrings.localized(actionName))
         selectedRange = NSRange(location: NSMaxRange(inserted), length: 0)
         markdownCoordinator?.programmaticEditDidChange(in: self, range: inserted)
     }

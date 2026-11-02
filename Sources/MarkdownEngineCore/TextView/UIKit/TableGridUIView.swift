@@ -105,7 +105,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
             button.frame = info.layout.rect(for: marker).insetBy(dx: -12, dy: -12)
             button.menu = menu(for: groups)
             button.showsMenuAsPrimaryAction = true
-            button.accessibilityLabel = "\(label) Options"
+            button.accessibilityLabel = EngineStrings.localized("\(label) Options")
             addSubview(button)
             handleButtons.append(button)
         }
@@ -115,7 +115,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         UIMenu(children: groups.map { group in
             UIMenu(options: .displayInline, children: group.map { command in
                 UIAction(
-                    title: command.title,
+                    title: EngineStrings.localized(command.title),
                     image: MenuIcons.image(for: command.title),
                     attributes: command.isEnabled ? [] : .disabled,
                     state: command.isChecked ? .on : .off
