@@ -32,8 +32,10 @@ final class TableOverlayUIView: UIScrollView {
         contentSize = info.layout.size
         showsVerticalScrollIndicator = false
         alwaysBounceVertical = false
-        // Let vertical drags fall through to the document scroll.
-        isDirectionalLockEnabled = true
+        delaysContentTouches = false
+        // The grid drives horizontal scrolling; keep the nested scroll view's
+        // pan out of the way so vertical drags reach the document.
+        isScrollEnabled = false
         backgroundColor = .clear
     }
 
@@ -58,6 +60,17 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
     private var handleButtons: [UIButton] = []
     /// A column border being dragged: the column left of it and the new right edge.
     private var resizing: (column: Int, edge: CGFloat)?
+    private enum TableScrollAxis { case horizontal, vertical }
+    private var tableScrollAxis: TableScrollAxis?
+    private var tableScrollStartOverlayOffset: CGFloat = 0
+    private var tableScrollStartTextOffset: CGFloat = 0
+    private var tableScrollStartWindowPoint: CGPoint = .zero
+
+    private lazy var tableScrollPan: UIPanGestureRecognizer = {
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleTableScrollPan(_:)))
+        pan.delegate = self
+        return pan
+    }()
 
     init(info: TableRenderInfo, textView: MarkdownUITextView) {
         self.info = info
@@ -69,6 +82,7 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         pan.delegate = self
         addGestureRecognizer(pan)
+        addGestureRecognizer(tableScrollPan)
         addInteraction(UIContextMenuInteraction(delegate: self))
     }
 
@@ -125,6 +139,24 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
     }
 
     override func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+        if gesture === tableScrollPan {
+            guard let overlay = superview as? TableOverlayUIView,
+                  overlay.contentSize.width > overlay.bounds.width
+            else { return false }
+
+            // Leave column resizing to the resize pan while editing.
+            if editingCell != nil,
+               info.layout.columnBorder(near: tableScrollPan.location(in: self), tolerance: 10) != nil {
+                return false
+            }
+
+            // This pan owns both axes: horizontal scrolls the table, vertical
+            // scrolls the document text view. Letting the enclosing scroll
+            // view handle vertical here is unreliable once the table fills
+            // the viewport.
+            return true
+        }
+
         guard gesture is UIPanGestureRecognizer else { return true }
         // Only a mostly-horizontal drag that starts on a column border, while editing.
         guard editingCell != nil, textView?.isEditable ?? false,
@@ -157,6 +189,76 @@ final class TableGridUIView: UIView, UITextFieldDelegate, UIContextMenuInteracti
             resizing = nil
         }
         setNeedsDisplay()
+    }
+
+    @objc private func handleTableScrollPan(_ pan: UIPanGestureRecognizer) {
+        guard let overlay = superview as? TableOverlayUIView,
+              let textView,
+              let window = textView.window
+        else { return }
+
+        switch pan.state {
+        case .began:
+            let velocity = pan.velocity(in: window)
+            tableScrollAxis = abs(velocity.x) > abs(velocity.y) ? .horizontal : .vertical
+            tableScrollStartOverlayOffset = overlay.contentOffset.x
+            tableScrollStartTextOffset = textView.contentOffset.y
+            tableScrollStartWindowPoint = pan.translation(in: window)
+
+        case .changed:
+            guard let axis = tableScrollAxis else { return }
+            let translation = pan.translation(in: window)
+            let dx = translation.x - tableScrollStartWindowPoint.x
+            let dy = translation.y - tableScrollStartWindowPoint.y
+
+            switch axis {
+            case .horizontal:
+                let maxX = max(0, overlay.contentSize.width - overlay.bounds.width)
+                overlay.contentOffset.x = min(max(tableScrollStartOverlayOffset - dx, 0), maxX)
+            case .vertical:
+                let minY = -textView.adjustedContentInset.top
+                let maxY = max(
+                    minY,
+                    textView.contentSize.height - textView.bounds.height + textView.adjustedContentInset.bottom
+                )
+                textView.contentOffset.y = min(max(tableScrollStartTextOffset - dy, minY), maxY)
+            }
+
+        case .ended, .cancelled:
+            guard let axis = tableScrollAxis else { return }
+            let velocity = pan.velocity(in: window)
+
+            switch axis {
+            case .horizontal:
+                let maxX = max(0, overlay.contentSize.width - overlay.bounds.width)
+                let projected = overlay.contentOffset.x - velocity.x * 0.2
+                UIView.animate(
+                    withDuration: 0.28,
+                    delay: 0,
+                    options: [.curveEaseOut, .allowUserInteraction]
+                ) {
+                    overlay.contentOffset.x = min(max(projected, 0), maxX)
+                }
+            case .vertical:
+                let minY = -textView.adjustedContentInset.top
+                let maxY = max(
+                    minY,
+                    textView.contentSize.height - textView.bounds.height + textView.adjustedContentInset.bottom
+                )
+                let projected = textView.contentOffset.y - velocity.y * 0.2
+                UIView.animate(
+                    withDuration: 0.28,
+                    delay: 0,
+                    options: [.curveEaseOut, .allowUserInteraction]
+                ) {
+                    textView.contentOffset.y = min(max(projected, minY), maxY)
+                }
+            }
+            tableScrollAxis = nil
+
+        default:
+            break
+        }
     }
 
     // MARK: Drawing
